@@ -19,7 +19,7 @@ Model()
 Monomer('T') # Tumor cell
 Monomer('P') # (P) PTHrP monomer
 Monomer('B', ['state'], {'state': ['x','L']}) # (B) osteoblast monomer
-Monomer('C', ['state'] , {'state': ['c','cc']}) # (C) osteoclast monomer
+Monomer('C') # (C) osteoclast monomer
 Monomer('Beta') # (Beta) TGF-Beta monomer
 
 Parameter('T_init',100)
@@ -36,8 +36,13 @@ Parameter('k_BX_BL', 0.05)
 Rule('Ob_express_RANKL' , P() + B(state='x') >> P() + B(state='L') , k_BX_BL)
 
 Parameter('k_C_cc', 1)
-Rule('Oc_doupled' , B(state='L') + C(state='c') >> B(state='L') + C(state='cc') , k_C_cc)
+Rule('Oc_doupled' , B(state='L') + C() >> B(state='L') + C() + C(), k_C_cc)
 
+Parameter('k_T_div', 1)
+Rule('T_divides', T() >> T() + T(), k_T_div)
+
+Parameter('k_T_death', 1)
+Rule('T_dies', T() >> None, k_T_death)
 
 Observable('Tumor_cells',T())
 Observable('PTHrP', P())
