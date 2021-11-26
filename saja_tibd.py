@@ -93,6 +93,7 @@ sim = ScipyOdeSimulator(model, tspan, verbose=True)
 result = sim.run()
 
 obs = result.observables
+obs['bone_frac'] = obs['bone_frac'] / Bone_init.value * 100  # convert into a value between 0 and 100
 #print(model.observables)
 for o in model.observables:
     plt.plot(tspan, obs[o.name], lw=2, label=o.name)
