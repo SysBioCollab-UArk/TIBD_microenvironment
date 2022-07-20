@@ -44,8 +44,8 @@ Initial(TGFB(), TGFB_init)
 Parameter('AOC_init', 0)
 Initial(AOC(), AOC_init)
 
-Parameter('krobp_ob', 1)
-Rule('ROB_production', UP() + TGFB() >> ROB() + TGFB(), krobp_ob)
+Parameter('kf_UP_ROB', 1)
+Rule('ROB_production', UP() + TGFB() >> ROB() + TGFB(), kf_UP_ROB)
 
 
 Parameter('kf_ROB_PTH',1)
@@ -53,5 +53,28 @@ Parameter('kr_ROB_PTH',1)
 Rule('ROB_BIND_PTH', ROB(pth=None) + PTH(rob=None) | ROB(pth=1) % PTH(rob=1) ,kf_ROB_PTH, kr_ROB_PTH )
 
 
-Parameter('kaob_pth', 1)
-Rule('AOB_Bind_PTH', AOB() + PTH() >> AOB()+ PTH(), kaob_pth)
+Parameter('kf_AOB_PTH', 1)
+Rule('AOB_Bind_PTH', AOB() + PTH() | AOB() + PTH(), kf_AOB_PTH)
+
+Parameter('kf_ROB_AOB',1)
+Rule('AOB_Production', ROB() + TGFB() >> AOB() + TGFB(), kf_ROB_AOB)
+
+Parameter('kf_AOB_L',1)
+Rule('AOB_EXPRESS_L', AOB(state='X') + PTH() | AOB(state='L') + PTH(), kf_AOB_L)
+
+Parameter('k_AOB_death',1)
+Rule('AOB_death', AOB() >> None, k_AOB_death)
+
+Parameter('k_PTH_deg',1)
+Rule('PTH_deg', PTH() >> None, k_PTH_deg)
+
+Parameter('k_OPG_deg',1)
+Rule('OPG_deg', OPG() >> None, k_OPG_deg)
+
+Parameter('kf_AOB_L_OPG',1)
+Rule('AOB_EXPRESS_L', AOB(state='X') + OPG() | AOB(state='L') + OPG(), kf_AOB_L_OPG)
+
+Parameter('kf_AOB_L_PTH_OPG',1)
+Rule('AOB_EXPRESS_L', AOB(state='X') + OPG()+ PTH() | AOB(state='L') + OPG() +PTH(), kf_AOB_L_PTH_OPG)
+
+
