@@ -51,7 +51,7 @@ Rule('Oc_consumes_bone', C() + Bone() >> C() + Beta(), k_Oc_Bone)
 Parameter('k_Ob_Bone',  0.1)
 Rule('Ob_produces_bone', B() + Beta() >> B() + Bone(), k_Ob_Bone)
 
-Parameter('k_Beta_tumor', 0.1)  # 0.14 # 0.01
+Parameter('k_Beta_tumor', 0.14)  # 0.14 # 0.01
 Rule('T_divides_beta', Beta() + T() >> Beta() + T() + T(), k_Beta_tumor)
 
 Parameter('k_T_div', 1)
@@ -88,9 +88,9 @@ Parameter('k_TGF_deg', 10)  # 1
 Rule('TGF_degrades', Beta() >> None, k_TGF_deg)
 
 Observable('Tumor_cells', T())
-# Observable('osteoblasts', B())
-Observable('osteoblasts_RANKL', B(state='L'))
-Observable('osteoblasts_no_lig', B(state='x'))
+Observable('osteoblasts', B())
+# Observable('osteoblasts_RANKL', B(state='L'))
+# Observable('osteoblasts_no_lig', B(state='x'))
 Observable('osteoclasts', C())
 Observable('PTHrP', P())
 Observable('TGF_Beta', Beta())
@@ -104,11 +104,14 @@ obs = result.observables
 obs['bone_frac'] = obs['bone_frac'] / Bone_init.value * 100  # convert into a value between 0 and 100
 # print(model.observables)
 for o in model.observables:
-    plt.plot(tspan, obs[o.name], lw=2, label=o.name)
+    plt.plot(tspan, obs[o.name], lw=3, label=o.name)
 
-plt.xlabel('time')
-plt.ylabel('concentration')
+plt.xlabel('time', fontsize=20)
+plt.ylabel('concentration', fontsize=20)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
 # plt.yscale('log')
-plt.legend(loc=0)
+plt.legend(loc='upper left', fontsize=16)  #, bbox_to_anchor=(0.15, 0.92))
+plt.tight_layout()
 
 plt.show()
