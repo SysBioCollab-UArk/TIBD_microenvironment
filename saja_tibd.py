@@ -114,4 +114,6 @@ plt.yticks(fontsize=20)
 plt.legend(loc='upper left', fontsize=16)  #, bbox_to_anchor=(0.15, 0.92))
 plt.tight_layout()
 
+plt.savefig('tibd_fig.pdf', format='pdf')
+
 plt.show()
