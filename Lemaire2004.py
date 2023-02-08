@@ -13,11 +13,24 @@ Model()
 # simulation commands
 
 # Monomers
-Monomer('P'['pr'],)
+Monomer('P',['pr'])
 Monomer('Pr',['p'])
 Monomer('O',['l'])
-Monomer('L',['o'],['k'])
+Monomer('L',['k'])
 Monomer('K',['l'])
+
+Parameter('P_init',100)
+Parameter('Pr_init',100)
+Parameter('O_init',100)
+Parameter('L_init',100)
+Parameter('K_init',100)
+
+#Initials
+Initial(P(pr=None), P_init)
+Initial(Pr(p=None), Pr_init)
+Initial(O(l=None), O_init)
+Initial(L(k=None), L_init)
+Initial(K(l=None),K_init)
 
 
 '''
@@ -26,66 +39,64 @@ Represented by
 R(p,t), stands for number of receptor per cell, it a constant
 (B + R), it stands for concentration of
 
-
 '''
 
 #Parameters
-Parameter('pp_P_creation', 1)
-Parameter('dp_destruction', 1)
-Parameter('k5, k5_P_binds_Pp', 1)
+Parameter('Sp', 1)
+Parameter('Ip', 1)
+Parameter('kp', 1)
+Parameter('k5', 1)
+Parameter('k6', 1)
 # Reaction schemes of binding of OPG-RANKL and RANK-RANKL
-Parameter('po_O_creation', 1)
-Parameter('do_O_destruction', 1)
-Parameter('k1_k2_O_bind_L', 1)
-Parameter('k3_k4_K_binds to L', 1)
-Parameter('pl_L_creation', 1)
-Parameter('dl_L_destruction', 1)
+Parameter('po', 1)
+Parameter('do', 1)
+Parameter('k1', 1)
+Parameter('k2', 1)
+Parameter('pl', 1)
+Parameter('dl', 1)
 
 #Rules
-Rule('P_creation',P(None)>>P(1), pp)
-Rule('P_destruction',P(1) >> P(None), dp)
-Rule('P_binds_Pp',P([p=None]) + Pr([p=None]) | P([pr=1]), Pr([p=1]),k5,k6)
+Rule('P_creation_basal',None >>P(pr=None), Sp)
+Rule('P_creation_external',None>>P(pr=None), Ip)
+
+Rule('P_destruction',P(pr=None) >> None, kp)
+Rule('P_binds_PR',P(pr=None) + Pr(p=None) | P(pr=1) % Pr(p=1),k5,k6)
 # Rules for O + L
-Rule('O_creation',O(None) >> O(1),po)
-Rule('O_destruction', o(1) >> O(None),do)
-Rule('O_bind_L',O(l=None) + L(o=None) | O(l=1) % L(o=1),k1,k2)
-Rule('L_creation',L(None) >> l(1),pl)
-Rule('L_destruction',L(1) >>L(None),dl)
+Rule('O_creation', None >> O(l=None),po)
+Rule('O_destruction', O(l=None) >> None,do)
+Rule('O_bind_L',O(l=None) + L(k=None) | O(l=1) % L(k=1),k1,k2)
+Rule('L_creation',None >> L(k=None),pl)
+Rule('L_destruction',L(k=None) >>None,dl)
 #Rules for L + K
 # where does K comes from?
 '''
 k is not considered a model variable
 
 '''
-Rule('K_binds to L',K(l=None) +L(k=None) | K(l=1) +L(k=1),k3,k4)
+Parameter('k3', 1)
+Parameter('k4',1)
+Rule('K_binds_to_L',K(l=None) +L(k=None) | K(l=1) % L(k=1),k3,k4)
 
-#Initials
-Initial(P(None), P_init)
-Initial(Pp(p=None), Pp_Init)
-Initial(O(l=None), 0_Init), O_Init)
-Initial(L(0=None, (k=None)), L_init)
 
 #Observables
 
 # Do we want to see Overall PTH production(ONLY?)
+# Do we want to see the
 
-Observable('P_creation', Pr(loc='creation'))
-Observable('P_destruction', Pr(loc='destruction'))
-Observable('O_creation', L(loc='creation'))
-Observable('O_destruction', K(loc='destruction'))
+Observable('P_free', P(pr=None))
+Observable('Pr_free', Pr(p=None))
+Observable('O_free', O(l=None))
+Observable('L_free', L(k=None))
+Observable('K_free', K(l=None))
 
 
-span=np.linspace(0,100,101)
+tspan=np.linspace(0,100,101)
 sim=ScipyOdeSimulator(model,tspan,verbose=True)
 result=sim.run()
 
+for obs in model.observables:
+    plt.plot(tspan, result.observables[obs.name], lw=2, label=obs.name)
 
-
-
-plt.plot(tspan,result.observables['P_creation'], lw=2,label='creation')
-plt.plot(tspan,result.observables['P_destruction'], lw=2,label='destruction')
-plt.plot(tspan,result.observables['O_creation'], lw=2,label='creation')
-plt.plot(tspan,result.observables['O_destruction'],lw=2,label='destruction')
 
 plt.xlabel('time')
 plt.ylabel('concentration')
