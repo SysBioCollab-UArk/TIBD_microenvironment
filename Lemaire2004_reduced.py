@@ -93,12 +93,12 @@ perturb = [
     [{'kf_AOB': 0}, {'kf_AOB': 1e-4}, {'kf_AOB': 0}],
     [{'kf_AOC': 0}, {'kf_AOC': 1e-4}, {'kf_AOC': 0}],
     [{'kf_ROB': 0}, {'kf_ROB': 1e-4}, {'kf_ROB': 0}],
-    [{'kr_AOB': 0}, {'kr_AOB': 8.3e-2}, {'kr_AOB': 0}],  # something wrong here
-    [{'kr_AOC': 0}, {'kr_AOC': 2.9e-1}, {'kr_AOC': 0}],  # something wrong here
-    [{'kr_ROB': 0}, {'kr_ROB': 1.2e-1}, {'kr_ROB': 0}],  # something wrong here
+    [{'kr_AOB': 0}, {'kr_AOB': 8.3e-2}, {'kr_AOB': 0}],  # value different from paper
+    [{'kr_AOC': 0}, {'kr_AOC': 2.9e-1}, {'kr_AOC': 0}],  # value different from paper
+    [{'kr_ROB': 0}, {'kr_ROB': 1.2e-1}, {'kr_ROB': 0}],  # value different from paper
     [{'IP': 0}, {'IP': 1e3}, {'IP': 0}],
     [{'IO': 0}, {'IO': 2e5}, {'IO': 0}],
-    [{'IL': 0, 'IO': 0}, {'IL': 1e4, 'IO': 0}, {'IL': 1e4, 'IO': 9e4}]  # something wrong with IL here
+    [{'IL': 0, 'IO': 0}, {'IL': 1e4, 'IO': 0}, {'IL': 1e4, 'IO': 9e4}]  # value of IL different from paper
 ]
 
 colors = ['b', 'r', 'g']

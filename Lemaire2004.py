@@ -194,8 +194,18 @@ expr_equil = [
 ]
 ##############################
 
+# Bone
+Monomer('Bone')
+Parameter('Bone_0', 100)
+Initial(Bone(), Bone_0)
+Observable('Bone_tot', Bone())
+Parameter('k_B_builds_bone', 1.25e8)
+Parameter('k_C_consumes_bone', 1e6)
+Rule('B_builds_bone', B() >> B() + Bone(), k_B_builds_bone)
+Rule('C_consumes_bone', C() + Bone() >> C(), k_C_consumes_bone)
+
 # simulations
-tspan =np.linspace(0, 140 ,141)
+tspan = np.linspace(0, 140 ,141)
 sim = ScipyOdeSimulator(model, tspan, verbose=True)
 output = sim.run()
 
@@ -211,7 +221,7 @@ plt.legend(loc='best')
 plt.tight_layout()
 
 # molecule concentrations
-fig, axs = plt.subplots(nrows=4, ncols=2, figsize=[6.4, 9.6])  # [6.4, 4.8]
+fig, axs = plt.subplots(nrows=4, ncols=2, sharex='all', figsize=[6.4, 9.6])  # [6.4, 4.8]
 row = 0
 col = 0
 molec_dict = {P_free: P_equil, Pr_free: Pr_equil, Pr_P_bound: Pr_P_equil, O_free: O_equil, L_free: L_equil,
@@ -220,6 +230,7 @@ for obs in molec_dict.keys():
     p = axs[row, col].plot(tspan, output.observables[obs.name], lw=2, label=obs.name)
     axs[row, col].plot(np.linspace(tspan[0], tspan[-1], 10), [molec_dict[obs]]*10, 'o', mfc='none',
                        color=p[0].get_color())
+    axs[row, col].set_xticks([0, 20, 40, 60, 80, 100, 120, 140])
     axs[row, col].legend(loc='best')
     if col == 0:
         axs[row, col].set_ylabel('concentration (pM)')
@@ -233,7 +244,7 @@ for obs in molec_dict.keys():
 plt.tight_layout()
 
 # expressions
-fig, axs = plt.subplots(nrows=3, ncols=2, figsize=[6.4, 7.2])  # [6.4, 4.8]
+fig, axs = plt.subplots(nrows=3, ncols=2, sharex='all', figsize=[6.4, 7.2])  # [6.4, 4.8]
 row = 0
 col = 0
 expr_dict = {'pi_P': pi_P_equil, 'pi_L': pi_L_equil, 'pi_C': pi_C_equil, 'So': So_equil, 'Sl': Sl_equil,
@@ -242,6 +253,7 @@ for expr in [e for e in model.expressions if e.name in ['pi_P', 'pi_L', 'pi_C', 
     p = axs[row, col].plot(tspan, output.expressions[expr.name], lw=2, label=expr.name)
     axs[row, col].plot(np.linspace(tspan[0], tspan[-1], 10), [expr_dict[expr.name]]*10, 'o', mfc='none',
                        color=p[0].get_color())
+    axs[row, col].set_xticks([0, 20, 40, 60, 80, 100, 120, 140])
     axs[row, col].legend(loc='best')
     if col == 0:
         axs[row, col].set_ylabel('value')
@@ -255,7 +267,7 @@ for expr in [e for e in model.expressions if e.name in ['pi_P', 'pi_L', 'pi_C', 
 plt.tight_layout()
 
 # equilibrium ratios (should equal 1)
-fig, axs = plt.subplots(nrows=3, ncols=2, figsize=[6.4, 7.2])  # [6.4, 4.8]
+fig, axs = plt.subplots(nrows=3, ncols=2, sharex='all', figsize=[6.4, 7.2])  # [6.4, 4.8]
 row = 0
 col = 0
 for expr in expr_equil:
@@ -263,6 +275,7 @@ for expr in expr_equil:
     axs[row, col].plot(np.linspace(tspan[0], tspan[-1], 10), [1]*10, 'o', mfc='none', color = p[0].get_color())
     axs[row, col].legend(loc='best')
     axs[row, col].set_ylim(bottom=0.99, top=1.02)
+    axs[row, col].set_xticks([0, 20, 40, 60, 80, 100, 120, 140])
     if col == 0:
         axs[row, col].set_ylabel('ratio')
     if row == 2:
@@ -274,6 +287,13 @@ for expr in expr_equil:
         col += 1
 plt.tight_layout()
 
+# bone dynamics
+plt.figure()
+plt.plot(tspan, output.observables['Bone_tot'], lw=2)
+plt.xlabel('time (d)')
+plt.ylabel('bone density')
+plt.tight_layout()
+
 # perturbations
 tspan1 = np.linspace(0, 20, 201)
 tspan2 = np.linspace(20, 80, 601)
@@ -283,32 +303,40 @@ perturb = [
     [{'kf_AOB': 0}, {'kf_AOB': 1e-4}, {'kf_AOB': 0}],
     [{'kf_AOC': 0}, {'kf_AOC': 1e-4}, {'kf_AOC': 0}],
     [{'kf_ROB': 0}, {'kf_ROB': 1e-4}, {'kf_ROB': 0}],
-    [{'kr_AOB': 0}, {'kr_AOB': 8.3e-2}, {'kr_AOB': 0}],  # something wrong here
-    [{'kr_AOC': 0}, {'kr_AOC': 2.9e-1}, {'kr_AOC': 0}],  # something wrong here
-    [{'kr_ROB': 0}, {'kr_ROB': 1.2e-1}, {'kr_ROB': 0}],  # something wrong here
+    [{'kr_AOB': 0}, {'kr_AOB': 8.3e-2}, {'kr_AOB': 0}],  # value different from paper
+    [{'kr_AOC': 0}, {'kr_AOC': 2.9e-1}, {'kr_AOC': 0}],  # value different from paper
+    [{'kr_ROB': 0}, {'kr_ROB': 1.2e-1}, {'kr_ROB': 0}],  # value different from paper
     [{'Ip': 0}, {'Ip': 1e3}, {'Ip': 0}],
     [{'Io': 0}, {'Io': 2e5}, {'Io': 0}],
-    [{'Il': 0, 'Io': 0}, {'Il': 1e4, 'Io': 0}, {'Il': 1e4, 'Io': 9e4}]  # something wrong with IL here
+    [{'Il': 0, 'Io': 0}, {'Il': 1e4, 'Io': 0}, {'Il': 1e4, 'Io': 9e4}]  # value of Il different from paper
 ]
 
 fig, axs = plt.subplots(nrows=3, ncols=3, sharex='all', figsize=(10,8))
+fig2, axs2 = plt.subplots(nrows=3, ncols=3, sharex='all', sharey='all', figsize=(10,8))
 colors = ['b', 'r', 'g']
 row = 0
 col = 0
+output_equil = output
 for p in perturb:
     print(p)
-    output1 = sim.run(param_values=p[0], tspan=tspan1)
+    output1 = sim.run(param_values=p[0], tspan=tspan1, initials=output_equil.species[-1])
     output2 = sim.run(param_values=p[1], tspan=tspan2, initials=output1.species[-1])
     output3 = sim.run(param_values=p[2], tspan=tspan3, initials=output2.species[-1])
     for i, obs in enumerate(['ROB', 'AOB', 'AOC']):
         axs[row, col].plot(tspan1, output1.observables[obs], lw=2, color=colors[i], label=obs)
         axs[row, col].plot(tspan2, output2.observables[obs], lw=2, color=colors[i])
         axs[row, col].plot(tspan3, output3.observables[obs], lw=2, color=colors[i])
+    p = axs2[row, col].plot(tspan1, output1.observables['Bone_tot'], lw=2)
+    axs2[row, col].plot(tspan2, output2.observables['Bone_tot'], lw=2, color=p[0].get_color())
+    axs2[row, col].plot(tspan3, output3.observables['Bone_tot'], lw=2, color=p[0].get_color())
     if row == 2:
         axs[row, col].set_xlabel('time (d)')
+        axs2[row, col].set_xlabel('time (d)')
     if col == 0:
         axs[row, col].set_ylabel('concentration (pM)')
+        axs2[row, col].set_ylabel('bone density')
     axs[row, col].set_xticks([0, 20, 40, 60, 80, 100, 120, 140])
+    axs2[row, col].set_xticks([0, 20, 40, 60, 80, 100, 120, 140])
     axs[row, col].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     axs[row, col].legend(loc=0)
     if (row+1) % 3 == 0:
@@ -316,6 +344,7 @@ for p in perturb:
         row = 0
     else:
         row += 1
-plt.tight_layout()
+fig.tight_layout()
+fig2.tight_layout()
 
 plt.show()
