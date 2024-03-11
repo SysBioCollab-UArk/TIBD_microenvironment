@@ -18,11 +18,11 @@ Monomer('B')  # active osteoblasts
 Monomer('C')  # active osteoclasts
 
 # Molecules
-Monomer('P', ['pr'])
-Monomer('Pr', ['p'])
-Monomer('L', ['k'])
-Monomer('O', ['l'])
-Monomer('K', ['l'])
+Monomer('P', ['pr'])  # PTH
+Monomer('Pr', ['p'])  # PTH receptor
+Monomer('L', ['k'])  # RANKL
+Monomer('O', ['l'])  # OPG
+Monomer('K', ['l'])  # RANK
 
 # Observables
 Observable('ROB', R())
