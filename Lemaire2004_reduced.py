@@ -9,15 +9,15 @@ from scipy.constants import N_A
 
 Model()
 
-Vol = 8.7e-9  # liters
+# Vol = 8.7e-9  # liters
 
 Monomer('R')  # responding osteoblasts
 Monomer('B')  # active osteoblasts
 Monomer('C')  # active osteoclasts
 
-Parameter('R_0', 0.7734e-3 * 1e-12 * N_A * Vol)  # pM
-Parameter('B_0', 0.7282e-3 * 1e-12 * N_A * Vol)
-Parameter('C_0', 0.9127e-3 * 1e-12 * N_A * Vol)
+Parameter('R_0', 0.7734e-3)  # * 1e-12 * N_A * Vol)  # pM
+Parameter('B_0', 0.7282e-3)  # * 1e-12 * N_A * Vol)
+Parameter('C_0', 0.9127e-3)  # * 1e-12 * N_A * Vol)
 
 Initial(R(), R_0)
 Initial(B(), B_0)
@@ -28,45 +28,51 @@ Observable('B_obs', B())
 Observable('C_obs', C())
 
 # constants
-Cs = 5e-3 * 1e-12 * N_A * Vol  # pM
-DA = 0.7  # /day
-dB = 0.7  # /day
-DC = 2.1e-3 * 1e-12 * N_A * Vol  # pM/day
-DR = 7e-4 * 1e-12 * N_A * Vol  # pM/day
-f0 = 0.05  # unitless
-Parameter('IL', 0 * 1e-12 * N_A * Vol)  # pM/day (range: 0-1e6)
-Parameter('IO', 0 * 1e-12 * N_A * Vol)  # pM/day (range: 0-1e6)
-Parameter('IP', 0 * 1e-12 * N_A * Vol)  # pM/day (range: 0-1e6)
-K = 10 * 1e-12 * N_A * Vol  # pM
-k1 = 1e-2 / (1e-12 * N_A * Vol)  # /pM-day
-k2 = 10  # /day
-k3 = 5.8e-4 / (1e-12 * N_A * Vol)  # /pM-day
-k4 = 1.7e-2  # /day
-k5 = 0.02 / (1e-12 * N_A * Vol) # /pM-day
-k6 = 3  # /day
+Parameter('Cs', 5e-3)  # * 1e-12 * N_A * Vol  # pM
+Parameter('DA', 0.7)  # /day
+Parameter('dB', 0.7)  # /day
+Parameter('DC', 2.1e-3)  # * 1e-12 * N_A * Vol  # pM/day
+Parameter('DR', 7e-4)  # * 1e-12 * N_A * Vol  # pM/day
+Parameter('f0', 0.05)  # unitless
+Parameter('IL', 0)  # * 1e-12 * N_A * Vol)  # pM/day (range: 0-1e6)
+Parameter('IO', 0)  # * 1e-12 * N_A * Vol)  # pM/day (range: 0-1e6)
+Parameter('IP', 0)  # * 1e-12 * N_A * Vol)  # pM/day (range: 0-1e6)
+Parameter('K', 10)  # * 1e-12 * N_A * Vol  # pM
+Parameter('k1', 1e-2)  # / (1e-12 * N_A * Vol)  # /pM-day
+Parameter('k2', 10)  # /day
+Parameter('k3', 5.8e-4)  # / (1e-12 * N_A * Vol)  # /pM-day
+Parameter('k4', 1.7e-2)  # /day
+Parameter('k5', 0.02)  # / (1e-12 * N_A * Vol) # /pM-day
+Parameter('k6', 3)  # /day
 Parameter('kB', 0.189)  # /day
-KLP = 3e6  # unitless
-kO = 0.35  # /day
-KOP = 2e5  # /day
-kP = 86  # /day
-rL = 1e3 * 1e-12 * N_A * Vol  # pM/day
-SP = 250 * 1e-12 * N_A * Vol  # pM/day
+Parameter('KLP', 3e6)  # unitless
+Parameter('kO', 0.35)  # /day
+Parameter('KOP', 2e5)  # /day
+Parameter('kP', 86)  # /day
+Parameter('rL', 1e3)  # * 1e-12 * N_A * Vol  # pM/day
+Parameter('SP', 250)  # * 1e-12 * N_A * Vol  # pM/day
 
 # compound constants
 # Pbar = IP/kP
-P0 = SP/kP  # pM
-Ps = k6/k5  # pM
+# P0 = SP/kP  # pM
+# Ps = k6/k5  # pM
 
 # ratios
-Expression('pi_P', (IP/kP + P0) / (IP/kP + Ps))  # unitless
-Expression('pi_C', (C_obs + f0*Cs) / (C_obs + Cs))  # unitless
-Expression('pi_L', k3/k4 * KLP*pi_P*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/pi_P*R_obs + IO)))  # unitless
+# Expression('pi_P', (IP/kP + P0) / (IP/kP + Ps))  # unitless
+# Expression('pi_P', (IP/kP + SP/kP) / (IP/kP + k6/k5))  # unitless
+# Expression('pi_C', (C_obs + f0*Cs) / (C_obs + Cs))  # unitless
+# Expression('pi_L', k3/k4 * KLP*pi_P*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/pi_P*R_obs + IO)))  # unitless
 
 # cell dynamics rules
-Expression('DR_pi_C', DR * pi_C)  # pM/day
-Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
-Expression('DC_pi_L', DC * pi_L)  # pM/day
-Expression('DA_pi_C', DA * pi_C)  # /day
+# Expression('DR_pi_C', DR * pi_C)  # pM/day
+# Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
+# Expression('DC_pi_L', DC * pi_L)  # pM/day
+# Expression('DA_pi_C', DA * pi_C)  # /day
+
+Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # pM/day
+Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
+Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # pM/day
+Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
 
 Rule('ROB_creation', None >> R(), DR_pi_C)
 Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
@@ -95,17 +101,15 @@ if __name__ == '__main__':
 
     # perturbations
     perturb = [
-        [{'kf_AOB': 0}, {'kf_AOB': 1e-4 * 1e-12 * N_A * Vol}, {'kf_AOB': 0}],
-        [{'kf_AOC': 0}, {'kf_AOC': 1e-4 * 1e-12 * N_A * Vol}, {'kf_AOC': 0}],
-        [{'kf_ROB': 0}, {'kf_ROB': 1e-4 * 1e-12 * N_A * Vol}, {'kf_ROB': 0}],
+        [{'kf_AOB': 0}, {'kf_AOB': 1e-4}, {'kf_AOB': 0}],
+        [{'kf_AOC': 0}, {'kf_AOC': 1e-4}, {'kf_AOC': 0}],
+        [{'kf_ROB': 0}, {'kf_ROB': 1e-4}, {'kf_ROB': 0}],
         [{'kr_AOB': 0}, {'kr_AOB': 8.3e-2}, {'kr_AOB': 0}],  # value different from paper
         [{'kr_AOC': 0}, {'kr_AOC': 2.9e-1}, {'kr_AOC': 0}],  # value different from paper
         [{'kr_ROB': 0}, {'kr_ROB': 1.2e-1}, {'kr_ROB': 0}],  # value different from paper
-        [{'IP': 0}, {'IP': 1e3 * 1e-12 * N_A * Vol}, {'IP': 0}],
-        [{'IO': 0}, {'IO': 2e5 * 1e-12 * N_A * Vol}, {'IO': 0}],
-        [{'IL': 0, 'IO': 0},
-         {'IL': 1e4 * 1e-12 * N_A * Vol, 'IO': 0},
-         {'IL': 1e4 * 1e-12 * N_A * Vol, 'IO': 9e4 * 1e-12 * N_A * Vol}]  # value of IL different from paper
+        [{'IP': 0}, {'IP': 1e3}, {'IP': 0}],
+        [{'IO': 0}, {'IO': 2e5}, {'IO': 0}],
+        [{'IL': 0, 'IO': 0}, {'IL': 1e4, 'IO': 0}, {'IL': 1e4, 'IO': 9e4}]  # value of IL different from paper
     ]
 
     colors = ['b', 'r', 'g']
@@ -125,19 +129,15 @@ if __name__ == '__main__':
         if row == 2:
             axs[row, col].set_xlabel('time (d)')
         if col == 0:
-            # axs[row, col].set_ylabel('concentration (pM)')
-            axs[row, col].set_ylabel('# of cells')
+            axs[row, col].set_ylabel('concentration (pM)')
         axs[row, col].set_xticks([0, 20, 40, 60, 80, 100, 120, 140])
-        # axs[row, col].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+        axs[row, col].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
         axs[row, col].legend(loc=0)
         if (row+1) % 3 == 0:
             col += 1
             row = 0
         else:
             row += 1
-
-    # for i, ode in enumerate(model.odes):
-    #     print('%s: %s' % (model.species[i], ode))
 
     plt.tight_layout()
     plt.show()
