@@ -26,10 +26,11 @@ Initial(C(), C_0)
 Observable('R_obs', R())
 Observable('B_obs', B())
 Observable('C_obs', C())
+Observable('OB_tot', R()+B())
 
 # constants
 Parameter('Cs', 5e-3)  # * 1e-12 * N_A * Vol  # pM
-Parameter('DA', 0.7)  # /day
+Parameter('DA', 2)  # 0.7)  # /day todo
 Parameter('dB', 0.7)  # /day
 Parameter('DC', 2.1e-3)  # * 1e-12 * N_A * Vol  # pM/day
 Parameter('DR', 7e-4)  # * 1e-12 * N_A * Vol  # pM/day
@@ -44,7 +45,7 @@ Parameter('k3', 5.8e-4)  # / (1e-12 * N_A * Vol)  # /pM-day
 Parameter('k4', 1.7e-2)  # /day
 Parameter('k5', 0.02)  # / (1e-12 * N_A * Vol) # /pM-day
 Parameter('k6', 3)  # /day
-Parameter('kB', 0.189)  # /day
+Parameter('kB', 0.022)  # 0.189)  # /day todo
 Parameter('KLP', 3e6)  # unitless
 Parameter('kO', 0.35)  # /day
 Parameter('KOP', 2e5)  # /day
@@ -78,6 +79,16 @@ Rule('ROB_creation', None >> R(), DR_pi_C)
 Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
 Rule('AOB_death', B() >> None, kB)
 Rule('AOC_creation_death', None | C(), DC_pi_L, DA_pi_C)
+
+# Bone
+Monomer('Bone')
+Parameter('Bone_0', 100)
+Initial(Bone(), Bone_0)
+Observable('Bone_tot', Bone())
+Parameter('k_B_builds_bone', 1.25e8)
+Parameter('k_C_consumes_bone', 1e6)
+Rule('B_builds_bone', B() >> B() + Bone(), k_B_builds_bone)
+Rule('C_consumes_bone', C() + Bone() >> C(), k_C_consumes_bone)
 
 if __name__ == '__main__':
 
