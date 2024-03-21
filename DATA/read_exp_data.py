@@ -25,10 +25,11 @@ for cc in cond_cellTypes:
     se_conc = [[conc[i] for i in range(len(conc)) if time[i] == w] for w in weeks]
     se_conc = [np.std(x, ddof=1) / np.sqrt(len(x)) for x in se_conc]
     plt.errorbar(weeks, avg_conc, se_conc, marker='o', ms=10, capsize=10, lw=3, color=p[0].get_color(),
-                 label='%s, %s' % (cc[1], cc[0]))
+                 label='%s (%s)' % (cc[1], cc[0]))
 
     plt.xlabel('Week')
-    plt.ylabel('Concentration (pM)')
+    ylabel = 'Relative BV/TV' if cc[1] == 'Bone' else 'Concentration (pM)'
+    plt.ylabel(ylabel)
     plt.xticks(ticks=weeks, labels=weeks)
     # Remove error bars from legend
     handles, labels = plt.gca().get_legend_handles_labels()
