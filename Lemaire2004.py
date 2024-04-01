@@ -7,7 +7,7 @@ from scipy.constants import N_A
 # This is a reproduction of the computational model presented in Lemaire et al., J. Theor. Biol. 229, 293-309 (2004).
 # https://doi.org/10.1016/j.jtbi.2004.03.023
 
-# TODO: Ass units have been changed to fM (1 pM = 1000 fM)
+# TODO: All units have been changed to fM (1 pM = 1000 fM)
 
 # TODO: Remove tumor and bone model elements and put in a separate file where this model is imported into
 

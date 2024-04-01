@@ -1,9 +1,4 @@
 from pysb import *
-from pysb.simulator import ScipyOdeSimulator
-import numpy as np
-import matplotlib.pyplot as plt
-from util import get_exp_data
-import os
 
 Model()
 
@@ -30,35 +25,42 @@ Parameter('A', 1.5)  # 1/fM
 Expression('k_tumor_allee', ALLEE_ON * (k_tumor_div - k_tumor_dth) / (A * Tumor_tot))
 Rule('tumor_allee', Tumor() >> None, k_tumor_allee)
 
-# simulations
-sim = ScipyOdeSimulator(model, verbose=True)
+if __name__ == '__main__':
+    from pysb.simulator import ScipyOdeSimulator
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from util import get_exp_data
+    import os
 
-plt.figure(constrained_layout=True)
+    # simulations
+    sim = ScipyOdeSimulator(model, verbose=True)
 
-# exponential growth
-tspan = np.linspace(0, 20, 201)
-output = sim.run(tspan=tspan, param_values={'CC_ON': 0, 'ALLEE_ON': 0})
-plt.plot(tspan/7, output.observables['Tumor_tot']/1000, lw=2, label='exponential')  # convert fM to pM for plot
+    plt.figure(constrained_layout=True)
 
-# logistic growth
-tspan = np.linspace(0, 30, 301)
-output = sim.run(tspan=tspan, param_values={'ALLEE_ON': 0})
-plt.plot(tspan/7, output.observables['Tumor_tot']/1000, lw=2, label='logistic')  # convert fM to pM for plot
+    # exponential growth
+    tspan = np.linspace(0, 20, 201)
+    output = sim.run(tspan=tspan, param_values={'CC_ON': 0, 'ALLEE_ON': 0})
+    plt.plot(tspan/7, output.observables['Tumor_tot']/1000, lw=2, label='exponential')  # convert fM to pM for plot
 
-# allee-logistic growth
-tspan = np.linspace(0, 30, 301)
-output = sim.run(tspan=tspan)
-plt.plot(tspan/7, output.observables['Tumor_tot']/1000, lw=2, label='allee-logistic')  # convert fM to pM for plot
+    # logistic growth
+    tspan = np.linspace(0, 30, 301)
+    output = sim.run(tspan=tspan, param_values={'ALLEE_ON': 0})
+    plt.plot(tspan/7, output.observables['Tumor_tot']/1000, lw=2, label='logistic')  # convert fM to pM for plot
 
-# experimental data
-exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_March2024.csv'))
-plt.errorbar(*exp_data[('Tumor', 'Tumor')], ls='None', marker='o', ms=8, capsize=10, color='k', label='experiment')
+    # allee-logistic growth
+    tspan = np.linspace(0, 30, 301)
+    output = sim.run(tspan=tspan)
+    plt.plot(tspan/7, output.observables['Tumor_tot']/1000, lw=2, label='allee-logistic')  # convert fM to pM for plot
 
-plt.ylim(bottom=-0.05, top=1.05)
-plt.legend(loc=0)
-plt.xlabel('time (week)')
-plt.ylabel('concentration (pM)')
+    # experimental data
+    exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_March2024.csv'))
+    plt.errorbar(*exp_data[('Tumor', 'Tumor')], ls='None', marker='o', ms=8, capsize=10, color='k', label='experiment')
 
-plt.savefig('allee_logistic_tumor.pdf', format='pdf')
+    plt.ylim(bottom=-0.05, top=1.05)
+    plt.legend(loc=0)
+    plt.xlabel('time (week)')
+    plt.ylabel('concentration (pM)')
 
-plt.show()
+    plt.savefig('allee_logistic_tumor.pdf', format='pdf')
+
+    plt.show()
