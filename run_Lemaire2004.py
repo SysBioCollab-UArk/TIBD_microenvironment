@@ -59,7 +59,7 @@ Rule('tumor_allee', Tumor() >> None, k_tumor_allee)
 
 # TODO: Add PTH (i.e., PTHrP) synthesis rate as a function of the number of tumor cells
 
-Parameter('k_tumor_PTHrP', 5e2)
+Parameter('k_tumor_PTHrP', 5e2)  # 1/day
 alias_model_components()
 IP.expr = sympify(k_tumor_PTHrP * Tumor_tot)
 
@@ -67,6 +67,16 @@ IP.expr = sympify(k_tumor_PTHrP * Tumor_tot)
 #  QUESTION: Does TGF-beta enhance the division rate, increase the rate of PTHrP production from tumor cells, or both?
 
 # ...
+
+# TODO: Hypothesize that tumor cells secrete a factor that promotes OB death
+Parameter('k_tumor_OB', 0.01)  # 1/fM-day
+alias_model_components()
+Rule('AOB_death_tumor', Tumor() + B() >> Tumor(), k_tumor_OB)
+
+# TODO: What if we include a rule that increases the birth rate of OCs as a function of number of tumor cells?
+Parameter('k_tumor_OC', 0.01)  # 1/fM-day
+alias_model_components()
+Rule('AOC_creation_tumor', Tumor() >> Tumor() + C(), k_tumor_OC)
 
 # #########################
 
