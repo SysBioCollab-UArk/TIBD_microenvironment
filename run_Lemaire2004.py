@@ -63,7 +63,8 @@ Parameter('k_tumor_PTHrP', 5e2)
 alias_model_components()
 IP.expr = sympify(k_tumor_PTHrP * Tumor_tot)
 
-# TODO: Add rules for tumor growth enhancement by TGF-beta (osteoclasts)
+# TODO: Add rules for tumor growth enhancement by TGF-beta (osteoclasts).
+#  QUESTION: Does TGF-beta enhance the division rate, increase the rate of PTHrP production from tumor cells, or both?
 
 # ...
 
@@ -100,15 +101,13 @@ initials[idx] = 1  # fM
 outputs.append(sim.run(tspan=tspans[-1], initials=initials))
 
 # plot time courses
-obs_to_plot = [['OB_tot', 'C_obs'], ['Bone_tot'], ['Tumor_tot']]  # ['R_obs', 'B_obs', 'C_obs']
-# ref_vals = [[mean_OB, mean_OC], [None]]
-refs = [[exp_data[('Tumor', 'OB')], exp_data[('Tumor', 'OC')]],  # [None, None, None]
-        [exp_data[('Tumor', 'Bone')]],
+obs_to_plot = [['OB_tot'], ['C_obs'], ['Bone_tot'], ['Tumor_tot']]
+refs = [[exp_data[('Tumor', 'OB')]], [exp_data[('Tumor', 'OC')]], [exp_data[('Tumor', 'Bone')]],
         [exp_data[('Tumor', 'Tumor')]]]
-leg_labels = [['OB', 'OC'], ['Bone'], ['Tumor']]  # ['ROB', 'AOB', 'AOC']
-colors = [['b', 'r'], ['g'], ['orange']]  # ['b', 'r', 'g']
-ylabels = ['concentration (pM)', 'relative BV/TV', 'concentration (pM)']
-scales = [1/1000, 1/100, 1/1000]
+leg_labels = [['OB'], ['OC'], ['Bone'], ['Tumor']]
+colors = [['b'], ['r'], ['g'], ['orange']]
+ylabels = ['concentration (pM)', 'concentration (pM)', 'relative BV/TV', 'concentration (pM)']
+scales = [1/1000, 1/1000, 1/100, 1/1000]
 for obs, ref, leg_label, color, ylabel, scale in zip(obs_to_plot, refs, leg_labels, colors, ylabels, scales):
     print(obs)
     plt.figure()
@@ -120,7 +119,8 @@ for obs, ref, leg_label, color, ylabel, scale in zip(obs_to_plot, refs, leg_labe
             add_label = False
         # plot reference (experimental) data
         if ref[i] is not None:
-            plt.errorbar(*ref[i], ecolor='k', ls='None', marker='o', ms=8, mec='k', capsize=10, color=color[i])  # , label='experiment')
+            plt.errorbar(*ref[i], ecolor='k', ls='None', marker='o', ms=8,  capsize=10, color=color[i],
+                         label='experiment')
     plt.xlabel('time (week)')
     plt.ylabel(ylabel)
     plt.xlim(left=0, right=4)
