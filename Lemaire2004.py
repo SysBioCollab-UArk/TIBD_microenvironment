@@ -3,41 +3,16 @@ from pysb.simulator import ScipyOdeSimulator
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import N_A
+from sympy import sympify
 
 # This is a reproduction of the computational model presented in Lemaire et al., J. Theor. Biol. 229, 293-309 (2004).
 # https://doi.org/10.1016/j.jtbi.2004.03.023
 
 # TODO: All units have been changed to fM (1 pM = 1000 fM)
 
-# TODO: Remove tumor and bone model elements and put in a separate file where this model is imported into
-
 Model()
 
 # Vol = 8.7e-9  # liters
-
-# # Tumor
-# Monomer('Tumor')
-# Parameter('Tumor_0', 1)  # fM
-# Initial(Tumor(), Tumor_0)
-# Observable('Tumor_tot', Tumor())
-#
-# # standard exponential growth
-# Parameter('k_tumor_div', 1)  # 1/day
-# Parameter('k_tumor_dth', 0.6)  # 1/day
-# Rule('Tumor_division', Tumor() >> Tumor() + Tumor(), k_tumor_div)
-# Rule('Tumor_death', Tumor() >> None, k_tumor_dth)
-#
-# # carrying capacity
-# Parameter('N', 600)  # fM
-# Expression('k_tumor_cc', (k_tumor_div - k_tumor_dth) / N)  # 1/fM-day
-# Rule('tumor_cc', Tumor() + Tumor() >> Tumor(), k_tumor_cc)
-#
-# # allee effect
-# Parameter('A', 1.5)  # 1/fM
-# Expression('k_tumor_allee', (k_tumor_div - k_tumor_dth) / (A * Tumor_tot))  # 1/day
-# Rule('tumor_allee', Tumor() >> None, k_tumor_allee)
-
-# Base model
 
 Monomer('R')  # responding osteoblasts
 Monomer('B')  # active osteoblasts
@@ -65,7 +40,7 @@ Parameter('DR', 7e-4 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
 Parameter('f0', 0.05)  # unitless
 Parameter('IL', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
 Parameter('IO', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
-Parameter('IP', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
+Expression('IP', sympify(0))  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
 Parameter('K', 10 * 1000)  # * 1e-12 * N_A * Vol  # fM
 Parameter('k1', 1e-2 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
 Parameter('k2', 10)  # /day
@@ -107,16 +82,6 @@ Rule('ROB_creation', None >> R(), DR_pi_C)
 Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
 Rule('AOB_death', B() >> None, kB)
 Rule('AOC_creation_death', None | C(), DC_pi_L, DA_pi_C)
-
-# Bone
-Monomer('Bone')
-Parameter('Bone_0', 100)  # percentage
-Initial(Bone(), Bone_0)
-Observable('Bone_tot', Bone())
-Parameter('k_B_builds_bone', 1.25e8)  # /day
-Parameter('k_C_consumes_bone', 1e6)  # /day
-Rule('B_builds_bone', B() >> B() + Bone(), k_B_builds_bone)
-Rule('C_consumes_bone', C() + Bone() >> C(), k_C_consumes_bone)
 
 if __name__ == '__main__':
 
