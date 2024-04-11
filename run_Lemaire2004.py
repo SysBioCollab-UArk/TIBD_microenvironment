@@ -85,7 +85,7 @@ Rule('C_consumes_bone', C() + Bone() >> C(), k_C_consumes_bone)
 Monomer('Tumor')
 Parameter('Tumor_0', 0)  # fM (1000 fM = 1 pM)
 # standard exponential growth
-Parameter('k_tumor_div', 1)  # 1/day
+Parameter('k_tumor_div_basal', 1)  # 1/day
 Parameter('k_tumor_dth', 0.6)  # 1/day
 # carrying capacity (logistic growth)
 Parameter('CC_ON', 1)
@@ -93,7 +93,10 @@ Parameter('N', 600)  # fM
 # allee effect
 Parameter('ALLEE_ON', 0)
 Parameter('A', 1.5)  # 1/fM
+# growth enhancement due to TGF-beta
+Parameter('k_tumor_div_PTHrP', 0.1)  # /day
 alias_model_components()
+Expression('k_tumor_div', k_tumor_div_basal + k_tumor_div_PTHrP * pi_C)
 
 Observable('Tumor_tot', Tumor())
 alias_model_components()
@@ -113,12 +116,7 @@ Rule('tumor_allee', Tumor() >> None, k_tumor_allee)
 # Make PTH (i.e., PTHrP) synthesis rate a function of the number of tumor cells
 Parameter('k_tumor_PTHrP', 5e2)  # 1/day
 alias_model_components()
-IP.expr = sympify(k_tumor_PTHrP * Tumor_tot)
-
-# TODO: Add rules for tumor growth enhancement by TGF-beta (osteoclasts).
-#  QUESTION: Does TGF-beta enhance the division rate, increase the rate of PTHrP production from tumor cells, or both?
-
-# ...
+IP.expr = sympify(k_tumor_PTHrP * pi_C * Tumor_tot)  # PTHrP expression depends on the TGF-beta occupancy pi_C
 
 # Hypothesize that tumor cells secrete a factor that promotes OB death
 Parameter('k_tumor_OB', 0.002)  # 1/fM-day  # 0.01

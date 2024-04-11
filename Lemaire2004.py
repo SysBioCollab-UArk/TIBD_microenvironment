@@ -8,7 +8,7 @@ from sympy import sympify
 # This is a reproduction of the computational model presented in Lemaire et al., J. Theor. Biol. 229, 293-309 (2004).
 # https://doi.org/10.1016/j.jtbi.2004.03.023
 
-# TODO: All units have been changed to fM (1 pM = 1000 fM)
+# Note that all units have been changed to fM (1 pM = 1000 fM)
 
 Model()
 
@@ -33,14 +33,15 @@ Observable('OB_tot', R()+B())
 
 # constants
 Parameter('Cs', 5e-3 * 1000)  # * 1e-12 * N_A * Vol  # fM
-Parameter('DA', 0.7)  # 0.7) # /day todo 2
+Parameter('DA', 0.7)  # 0.7) # /day
 Parameter('dB', 0.7)  # /day
 Parameter('DC', 2.1e-3 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
 Parameter('DR', 7e-4 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
 Parameter('f0', 0.05)  # unitless
 Parameter('IL', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
 Parameter('IO', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
-Expression('IP', sympify(0))  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
+Parameter('IP_const', 0)
+Expression('IP', IP_const)  # sympify(0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
 Parameter('K', 10 * 1000)  # * 1e-12 * N_A * Vol  # fM
 Parameter('k1', 1e-2 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
 Parameter('k2', 10)  # /day
@@ -48,7 +49,7 @@ Parameter('k3', 5.8e-4 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
 Parameter('k4', 1.7e-2)  # /day
 Parameter('k5', 0.02 / 1000)  # / (1e-12 * N_A * Vol) # /fM-day
 Parameter('k6', 3)  # /day
-Parameter('kB', 0.189)  # 0.189) # /day todo 0.022
+Parameter('kB', 0.189)  # 0.189) # /day
 Parameter('KLP', 3e6)  # unitless
 Parameter('kO', 0.35)  # /day
 Parameter('KOP', 2e5)  # /day
@@ -64,19 +65,19 @@ Parameter('SP', 250 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
 # ratios
 # Expression('pi_P', (IP/kP + P0) / (IP/kP + Ps))  # unitless
 # Expression('pi_P', (IP/kP + SP/kP) / (IP/kP + k6/k5))  # unitless
-# Expression('pi_C', (C_obs + f0*Cs) / (C_obs + Cs))  # unitless
+Expression('pi_C', (C_obs + f0*Cs) / (C_obs + Cs))  # unitless
 # Expression('pi_L', k3/k4 * KLP*pi_P*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/pi_P*R_obs + IO)))  # unitless
 
 # cell dynamics rules
-# Expression('DR_pi_C', DR * pi_C)  # fM/day
-# Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
+Expression('DR_pi_C', DR * pi_C)  # fM/day
+Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
 # Expression('DC_pi_L', DC * pi_L)  # fM/day
-# Expression('DA_pi_C', DA * pi_C)  # /day
+Expression('DA_pi_C', DA * pi_C)  # /day
 
-Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # fM/day
-Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
+# Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # fM/day
+# Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
 Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # fM/day
-Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
+# Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
 
 Rule('ROB_creation', None >> R(), DR_pi_C)
 Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
@@ -111,7 +112,7 @@ if __name__ == '__main__':
         [{'kr_AOB': 0}, {'kr_AOB': 8.3e-2}, {'kr_AOB': 0}],  # value different from paper
         [{'kr_AOC': 0}, {'kr_AOC': 2.9e-1}, {'kr_AOC': 0}],  # value different from paper
         [{'kr_ROB': 0}, {'kr_ROB': 1.2e-1}, {'kr_ROB': 0}],  # value different from paper
-        [{'IP': 0}, {'IP': 1e3 * 1000}, {'IP': 0}],
+        [{'IP_const': 0}, {'IP_const': 1e3 * 1000}, {'IP_const': 0}],
         [{'IO': 0}, {'IO': 2e5 * 1000}, {'IO': 0}],
         [{'IL': 0, 'IO': 0}, {'IL': 1e4 * 1000, 'IO': 0},
          {'IL': 1e4 * 1000, 'IO': 9e4 * 1000}]  # value of IL different from paper
