@@ -12,11 +12,13 @@ import os
 exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_March2024.csv'))
 
 # ########## Bone ##########
-
 Monomer('Bone')
 Parameter('Bone_0', 100)  # percentage
 
 # Make OB bone production (OC bone consumption) rate increase (decrease) with decreasing (increasing) concentration
+mean_OB = 1.06E-02 * 1000  # fM, from data
+mean_OC = 9.16E-04 * 1000  # fM, from data
+
 # === MODEL #1 ===
 # '''
 Parameter('k1_B_builds_bone', 0)  # /day 1.25e8
@@ -34,8 +36,6 @@ Expression('k_C_consumes_bone',
                      (k1_C_consumes_bone * (k2_C_consumes_bone ** nC + C_obs ** nC) / C_obs ** nC, True)))
 
 # estimate rate constant for OB -> OB + Bone to get bone density ~ 100
-mean_OB = 1.06E-02 * 1000  # fM, from data
-mean_OC = 9.16E-04 * 1000  # fM, from data
 k1C = k1_C_consumes_bone.value
 k2C = k2_C_consumes_bone.value
 k2B = k2_B_builds_bone.value
@@ -62,8 +62,6 @@ Expression('k_C_consumes_bone',
            k1_C_consumes_bone + kC_star * k2_C_consumes_bone ** nC / (k2_C_consumes_bone ** nC + C_obs ** nC))
 
 # estimate rate constant for OB -> OB + Bone to get bone density ~ 100
-mean_OB = 1.06E-02 * 1000  # fM, from data
-mean_OC = 9.16E-04 * 1000  # fM, from data
 k1C = k1_C_consumes_bone.value
 k2C = k2_C_consumes_bone.value
 k2B = k2_B_builds_bone.value
@@ -81,18 +79,21 @@ Rule('B_builds_bone', B() >> B() + Bone(), k_B_builds_bone)
 Rule('C_consumes_bone', C() + Bone() >> C(), k_C_consumes_bone)
 
 # ######### Tumor #########
-
 Monomer('Tumor')
 Parameter('Tumor_0', 0)  # fM (1000 fM = 1 pM)
+
 # standard exponential growth
 Parameter('k_tumor_div_basal', 1)  # 1/day
 Parameter('k_tumor_dth', 0.6)  # 1/day
+
 # carrying capacity (logistic growth)
 Parameter('CC_ON', 1)
 Parameter('N', 600)  # fM
+
 # allee effect
 Parameter('ALLEE_ON', 0)
 Parameter('A', 1.5)  # 1/fM
+
 # growth enhancement due to TGF-beta
 Parameter('k_tumor_div_PTHrP', 0.1)  # /day
 alias_model_components()
@@ -123,7 +124,7 @@ Parameter('k_tumor_OB', 0.002)  # 1/fM-day  # 0.01
 alias_model_components()
 Rule('AOB_death_tumor', Tumor() + B() >> Tumor(), k_tumor_OB)
 
-# Hypothesize that tumor cells secrete a factor that promotes OC birth
+# Hypothesize that tumor cells secrete a factor that promotes OC creation
 Parameter('k_tumor_OC', 0.004)  # 1/fM-day  # 0.01
 alias_model_components()
 Rule('AOC_creation_tumor', Tumor() >> Tumor() + C(), k_tumor_OC)
