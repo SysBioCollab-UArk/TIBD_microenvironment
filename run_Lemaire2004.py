@@ -11,11 +11,6 @@ import os
 # experimental data
 exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_May2024.csv'))
 
-# refs = [[exp_data[('Tumor', 'OB')]], [exp_data[('Tumor', 'OC')]], [exp_data[('Tumor', 'Bone')]],
-#         [exp_data[('Tumor', 'Tumor')]]]
-print(exp_data[('Tumor', 'OB')])
-quit()
-
 # ########## Bone ##########
 Monomer('Bone')
 Parameter('Bone_0', 100)  # percentage
@@ -146,8 +141,8 @@ Rule('AOC_death_bisphos', Bisphos() + C() >> Bisphos(), k_bisphos_AOC)
 if __name__ == "__main__":
 
     # run simulation(s)
-    ADD_BISPHOSPHONATE = False
-    SAVE_FIGS = True
+    ADD_BISPHOSPHONATE = True
+    SAVE_FIGS = False
 
     # start with zero cells and run to equilibrium
     R_0.value = 0.0
