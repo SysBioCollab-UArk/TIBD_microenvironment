@@ -40,8 +40,8 @@ Parameter('DR', 7e-4 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
 Parameter('f0', 0.05)  # unitless
 Parameter('IL', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
 Parameter('IO', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
-Parameter('IP_const', 0)
-Expression('IP', IP_const)  # sympify(0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
+Parameter('IP_const', 0)  # fM/day (range: 0-1e9)
+Expression('IP', IP_const)  # sympify(0)  # * 1e-12 * N_A * Vol)  # fM/day
 Parameter('K', 10 * 1000)  # * 1e-12 * N_A * Vol  # fM
 Parameter('k1', 1e-2 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
 Parameter('k2', 10)  # /day
