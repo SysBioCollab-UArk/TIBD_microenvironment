@@ -11,6 +11,11 @@ import os
 # experimental data
 exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_May2024.csv'))
 
+# refs = [[exp_data[('Tumor', 'OB')]], [exp_data[('Tumor', 'OC')]], [exp_data[('Tumor', 'Bone')]],
+#         [exp_data[('Tumor', 'Tumor')]]]
+print(exp_data[('Tumor', 'OB')])
+quit()
+
 # ########## Bone ##########
 Monomer('Bone')
 Parameter('Bone_0', 100)  # percentage
