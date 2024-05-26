@@ -1,90 +1,108 @@
 from pysb import *
-from pysb.simulator import ScipyOdeSimulator
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.constants import N_A
-from sympy import sympify
+from pysb.util import alias_model_components
 
-# This is a reproduction of the computational model presented in Lemaire et al., J. Theor. Biol. 229, 293-309 (2004).
-# https://doi.org/10.1016/j.jtbi.2004.03.023
 
-# Note that all units have been changed to fM (1 pM = 1000 fM)
+def create_model_elements():
 
-Model()
+    # This is a reproduction of the computational model presented in Lemaire et al., J. Theor. Biol. 229, 293-309 (2004)
+    # https://doi.org/10.1016/j.jtbi.2004.03.023
 
-# Vol = 8.7e-9  # liters
+    # Note that all units have been changed to fM (1 pM = 1000 fM)
 
-Monomer('R')  # responding osteoblasts
-Monomer('B')  # active osteoblasts
-Monomer('C')  # active osteoclasts
+    # Vol = 8.7e-9  # liters
 
-Parameter('R_0', 0.7734e-3 * 1000)  # * 1e-12 * N_A * Vol)  # fM
-Parameter('B_0', 0.7282e-3 * 1000)  # * 1e-12 * N_A * Vol)  # fM
-Parameter('C_0', 0.9127e-3 * 1000)  # * 1e-12 * N_A * Vol)  # fM
+    # cell types
+    Monomer('R')  # responding osteoblasts
+    Monomer('B')  # active osteoblasts
+    Monomer('C')  # active osteoclasts
 
-Initial(R(), R_0)
-Initial(B(), B_0)
-Initial(C(), C_0)
+    # initial concentrations
+    Parameter('R_0', 0.7734e-3 * 1000)  # * 1e-12 * N_A * Vol)  # fM
+    Parameter('B_0', 0.7282e-3 * 1000)  # * 1e-12 * N_A * Vol)  # fM
+    Parameter('C_0', 0.9127e-3 * 1000)  # * 1e-12 * N_A * Vol)  # fM
 
-Observable('R_obs', R())
-Observable('B_obs', B())
-Observable('C_obs', C())
-Observable('OB_tot', R()+B())
+    # rate parameters
+    Parameter('Cs', 5e-3 * 1000)  # * 1e-12 * N_A * Vol  # fM
+    Parameter('DA', 0.7)  # 0.7) # /day
+    Parameter('dB', 0.7)  # /day
+    Parameter('DC', 2.1e-3 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
+    Parameter('DR', 7e-4 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
+    Parameter('f0', 0.05)  # unitless
+    Parameter('IL', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
+    Parameter('IO', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
+    Parameter('IP_const', 0)  # fM/day (range: 0-1e9)
+    Parameter('K', 10 * 1000)  # * 1e-12 * N_A * Vol  # fM
+    Parameter('k1', 1e-2 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
+    Parameter('k2', 10)  # /day
+    Parameter('k3', 5.8e-4 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
+    Parameter('k4', 1.7e-2)  # /day
+    Parameter('k5', 0.02 / 1000)  # / (1e-12 * N_A * Vol) # /fM-day
+    Parameter('k6', 3)  # /day
+    Parameter('kB', 0.189)  # 0.189) # /day
+    Parameter('KLP', 3e6)  # unitless
+    Parameter('kO', 0.35)  # /day
+    Parameter('KOP', 2e5)  # /day
+    Parameter('kP', 86)  # /day
+    Parameter('rL', 1e3 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
+    Parameter('SP', 250 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
 
-# constants
-Parameter('Cs', 5e-3 * 1000)  # * 1e-12 * N_A * Vol  # fM
-Parameter('DA', 0.7)  # 0.7) # /day
-Parameter('dB', 0.7)  # /day
-Parameter('DC', 2.1e-3 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
-Parameter('DR', 7e-4 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
-Parameter('f0', 0.05)  # unitless
-Parameter('IL', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
-Parameter('IO', 0)  # * 1e-12 * N_A * Vol)  # fM/day (range: 0-1e9)
-Parameter('IP_const', 0)  # fM/day (range: 0-1e9)
-Expression('IP', IP_const)  # sympify(0)  # * 1e-12 * N_A * Vol)  # fM/day
-Parameter('K', 10 * 1000)  # * 1e-12 * N_A * Vol  # fM
-Parameter('k1', 1e-2 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
-Parameter('k2', 10)  # /day
-Parameter('k3', 5.8e-4 / 1000)  # / (1e-12 * N_A * Vol)  # /fM-day
-Parameter('k4', 1.7e-2)  # /day
-Parameter('k5', 0.02 / 1000)  # / (1e-12 * N_A * Vol) # /fM-day
-Parameter('k6', 3)  # /day
-Parameter('kB', 0.189)  # 0.189) # /day
-Parameter('KLP', 3e6)  # unitless
-Parameter('kO', 0.35)  # /day
-Parameter('KOP', 2e5)  # /day
-Parameter('kP', 86)  # /day
-Parameter('rL', 1e3 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
-Parameter('SP', 250 * 1000)  # * 1e-12 * N_A * Vol  # fM/day
+    alias_model_components()
 
-# compound constants
-# Pbar = IP/kP
-# P0 = SP/kP  # fM
-# Ps = k6/k5  # fM
+    # make injected PTH/PTHrP an expression, rather than a constant
+    Expression('IP', IP_const)  # * 1e-12 * N_A * Vol)  # fM/day
 
-# ratios
-# Expression('pi_P', (IP/kP + P0) / (IP/kP + Ps))  # unitless
-# Expression('pi_P', (IP/kP + SP/kP) / (IP/kP + k6/k5))  # unitless
-Expression('pi_C', (C_obs + f0*Cs) / (C_obs + Cs))  # unitless
-# Expression('pi_L', k3/k4 * KLP*pi_P*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/pi_P*R_obs + IO)))  # unitless
+    # initial conditions
+    Initial(R(), R_0)
+    Initial(B(), B_0)
+    Initial(C(), C_0)
 
-# cell dynamics rules
-Expression('DR_pi_C', DR * pi_C)  # fM/day
-Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
-# Expression('DC_pi_L', DC * pi_L)  # fM/day
-Expression('DA_pi_C', DA * pi_C)  # /day
+    # observables
+    Observable('R_obs', R())
+    Observable('B_obs', B())
+    Observable('C_obs', C())
+    Observable('OB_tot', R() + B())
 
-# Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # fM/day
-# Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
-Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # fM/day
-# Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
+    # compound constants
+    # Pbar = IP/kP
+    # P0 = SP/kP  # fM
+    # Ps = k6/k5  # fM
 
-Rule('ROB_creation', None >> R(), DR_pi_C)
-Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
-Rule('AOB_death', B() >> None, kB)
-Rule('AOC_creation_death', None | C(), DC_pi_L, DA_pi_C)
+    alias_model_components()
+
+    # ratios
+    # Expression('pi_P', (IP/kP + P0) / (IP/kP + Ps))  # unitless
+    # Expression('pi_P', (IP/kP + SP/kP) / (IP/kP + k6/k5))  # unitless
+    Expression('pi_C', (C_obs + f0*Cs) / (C_obs + Cs))  # unitless
+    # Expression('pi_L', k3/k4 * KLP*pi_P*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/pi_P*R_obs + IO)))  # unitless
+
+    alias_model_components()
+
+    # cell dynamics rules
+    Expression('DR_pi_C', DR * pi_C)  # fM/day
+    Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
+    # Expression('DC_pi_L', DC * pi_L)  # fM/day
+    Expression('DA_pi_C', DA * pi_C)  # /day
+
+    # Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # fM/day
+    # Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
+    Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # fM/day
+    # Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
+
+    alias_model_components()
+
+    Rule('ROB_creation', None >> R(), DR_pi_C)
+    Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
+    Rule('AOB_death', B() >> None, kB)
+    Rule('AOC_creation_death', None | C(), DC_pi_L, DA_pi_C)
+
 
 if __name__ == '__main__':
+    from pysb.simulator import ScipyOdeSimulator
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    Model()
+    create_model_elements()
 
     # cell injections
     Parameter('kf_AOB', 0)  # fM/day
