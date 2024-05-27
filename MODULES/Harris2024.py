@@ -3,7 +3,7 @@ from sympy import Piecewise, sympify
 from pysb.util import alias_model_components
 
 
-def create_model_elements(OB_OC_bone_model=1):
+def create_model_elements(OB_OC_BONE_MODEL=1):
 
     # ########## BONE ##########
 
@@ -25,7 +25,7 @@ def create_model_elements(OB_OC_bone_model=1):
 
     alias_model_components()
 
-    if OB_OC_bone_model == 1:
+    if OB_OC_BONE_MODEL == 1:
 
         # === MODEL #1 ===
 
@@ -44,7 +44,7 @@ def create_model_elements(OB_OC_bone_model=1):
         k2_C_consumes_bone.value = 1
         nC.value = 1
 
-    elif OB_OC_bone_model == 2:
+    elif OB_OC_BONE_MODEL == 2:
 
         # === MODEL #2 ===
 
