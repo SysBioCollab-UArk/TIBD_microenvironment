@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from util import get_exp_data
-from Lemaire2004 import create_model_elements as create_Lemaire_ME
-from Harris2024 import create_model_elements as create_Harris_ME
+from MODULES.Lemaire2004 import create_model_elements as create_Lemaire_ME
+from MODULES.Harris2024 import create_model_elements as create_Harris_ME
 
 # experimental data
 exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_May2024.csv'))
@@ -15,7 +15,7 @@ exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_May2024.csv'))
 Model()
 
 create_Lemaire_ME()
-OB_OC_BONE_MODEL = 2
+OB_OC_BONE_MODEL = 1
 create_Harris_ME(OB_OC_BONE_MODEL)
 
 alias_model_components()
