@@ -1,6 +1,6 @@
 from pysb import *
-from sympy import Piecewise, sympify
 from pysb.util import alias_model_components
+from sympy import Piecewise, sympify
 
 
 def create_model_elements(OB_OC_BONE_MODEL=1):
@@ -130,12 +130,3 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
     Parameter('k_tumor_OC', 0.004)  # 1/fM-day  # 0.01
     alias_model_components()
     Rule('AOC_creation_tumor', Tumor() >> Tumor() + C(), k_tumor_OC)
-
-    # ######### BISPHOSPHONATES #########
-
-    Monomer('Bisphos')
-    Parameter('Bisphos_0', 0)  # fM
-    Parameter('k_bisphos_AOC', 1)  # 1/fM-day
-    alias_model_components()
-    Initial(Bisphos(), Bisphos_0)
-    Rule('AOC_death_bisphos', Bisphos() + C() >> Bisphos(), k_bisphos_AOC)
