@@ -12,7 +12,8 @@ import glob
 
 class ParameterCalibration(object):
 
-    def __init__(self, model, exp_data_file, sim_protocols, priors=None, no_sample=None, default_prior=('norm', 2.0)):
+    def __init__(self, model, exp_data_file, sim_protocols, priors=None, no_sample=None, default_prior=('norm', 2.0),
+                 param_expts_map=None):
 
         self.model = model
         # if only one simulation protocol is given, put it inside a list of length 1
@@ -42,10 +43,12 @@ class ParameterCalibration(object):
                         self.tspan_masks[-1][name][i] = True
 
         # create the list of parameters to be sampled and save their indices
-        self.sampled_params_list = []
-        self.parameter_idxs = []
         priors = {} if priors is None else priors
         no_sample = [] if no_sample is None else no_sample
+        param_expts_map = {} if param_expts_map is None else param_expts_map
+        self.sampled_params_list = []
+        self.parameter_idxs = []
+        self.samples_idxs = [[] for n in range(self.n_experiments)]  # this is for when params vary between expts
         for i, p in enumerate(self.model.parameters):
             if p.name not in no_sample:
                 self.parameter_idxs.append(i)
@@ -53,13 +56,19 @@ class ParameterCalibration(object):
                 prior = default_prior if p.name not in list(priors.keys()) else priors[p.name]
                 print("Will sample parameter {} with {} prior around log10({}) = {}".format(p.name, prior,
                                                                                             p_value, np.log10(p_value)))
-                if prior[0] == 'uniform':
-                    self.sampled_params_list.append(SampledParam(uniform, loc=np.log10(p_value) - 0.5 * prior[1],
-                                                                 scale=prior[1]))
-                elif prior[0] == 'norm':
-                    self.sampled_params_list.append(SampledParam(norm, loc=np.log10(p_value), scale=prior[1]))
-                else:
-                    raise ValueError("Prior shape {} not recognized".format(prior[0]))
+                # loop over groups of experiments (default is one group with all experiments)
+                for group in param_expts_map.get(p.name, [[i for i in range(self.n_experiments)]]):
+                    if prior[0] == 'uniform':
+                        self.sampled_params_list.append(SampledParam(uniform, loc=np.log10(p_value) - 0.5 * prior[1],
+                                                                     scale=prior[1]))
+                    elif prior[0] == 'norm':
+                        self.sampled_params_list.append(SampledParam(norm, loc=np.log10(p_value), scale=prior[1]))
+                    else:
+                        raise ValueError("Prior shape {} not recognized".format(prior[0]))
+                    # save index of sampled_params_list for each experiment in the group
+                    for n in range(self.n_experiments):
+                        if n in group:
+                            self.samples_idxs[n].append(len(self.sampled_params_list) - 1)
 
         # create normal distributions around each data point to use in the likelihood function
         self.like_data = []
@@ -75,9 +84,13 @@ class ParameterCalibration(object):
                         se.append([d['stderr'] for d in data if d['time'] == t][0])
                 self.like_data[-1][name] = norm(loc=avg, scale=se)
 
-        # store the full set of parameter values and create the array for storing the likelihood values
+        # store the full set of parameter values
         self.param_values = np.array([p.value for p in self.model.parameters])
-        self.logp_data = [0.] * self.n_experiments  # pre-creating this should save computation time
+
+        # create the array for storing the likelihood values
+        # creating the array here and reusing it, rather than creating a new one every time the likelihood function is
+        # accessed, should save some time
+        self.logp_data = [0.] * self.n_experiments
 
         # create the simulator
         self.solver = ScipyOdeSimulator(self.model)
@@ -86,7 +99,8 @@ class ParameterCalibration(object):
     def likelihood(self, position):
         y = np.copy(position)
         for n in range(self.n_experiments):
-            self.param_values[self.parameter_idxs] = 10 ** y
+            self.logp_data[n] = 0.  # reinitialize this to zero
+            self.param_values[self.parameter_idxs] = 10 ** y[self.samples_idxs[n]]
             # run simulation
             output = self.sim_protocols[n](self.solver, self.tdata[n], self.param_values)
             # calculate log-likelihood
@@ -95,6 +109,25 @@ class ParameterCalibration(object):
             if np.isnan(self.logp_data[n]):
                 self.logp_data[n] = -np.inf
         return sum(self.logp_data)
+
+    # def likelihood(position):
+    #     y = np.copy(position)
+    #     logp_data = [0] * n_experiments
+    #     for n in range(n_experiments):
+    #         param_values[rates_mask] = 10 ** y
+    #         # equilibration
+    #         equil = solver.run(tspan=np.linspace(-500, 0, 2), param_values=param_values)
+    #         # add tumor cells
+    #         initials = equil.species[-1]
+    #         idx_tumor = [str(sp) for sp in model.species].index('Tumor()')  # get index of Tumor species
+    #         initials[idx_tumor] = 1  # fM
+    #         sim = solver.run(tspan=tspan[n], param_values=param_values, initials=initials).all
+    #         # calculate log-likelihood
+    #         for sp in like_data[n].keys():
+    #             logp_data[n] += np.sum(like_data[n][sp].logpdf(sim[sp][tspan_mask[n][sp]]))
+    #         if np.isnan(logp_data[n]):
+    #             logp_data[n] = -np.inf
+    #     return sum(logp_data)
 
     def run(self, niterations=50000, nchains=3, multitry=False, gamma_levels=4,  adapt_gamma=True,
             history_thin=1, verbose=True, plot_results=True):
@@ -186,7 +219,7 @@ class ParameterCalibration(object):
                                   int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
                       for n in range(self.n_experiments)]
             self.plot_timecourses(self.model, self.raw_data, self.sim_protocols, tspans, param_samples,
-                                  self.parameter_idxs, xlabel=xlabel, ylabels=ylabels)
+                                  self.parameter_idxs, samples_idxs=self.samples_idxs, xlabel=xlabel, ylabels=ylabels)
 
     @staticmethod
     def plot_log_likelihood(logps_files, cutoff=None, show_plot=False, save_plot=True):
