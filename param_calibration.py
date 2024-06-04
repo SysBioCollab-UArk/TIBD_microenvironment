@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import re
 import seaborn as sns
 import glob
+from itertools import combinations
 
 
 class ParameterCalibration(object):
@@ -88,8 +89,8 @@ class ParameterCalibration(object):
         self.param_values = np.array([p.value for p in self.model.parameters])
 
         # create the array for storing the likelihood values
-        # creating the array here and reusing it, rather than creating a new one every time the likelihood function is
-        # accessed, should save some time
+        # NOTE: creating the array here and reusing it, rather than creating a new one every time the likelihood
+        # function is accessed, should save some time
         self.logp_data = [0.] * self.n_experiments
 
         # create the simulator
@@ -109,25 +110,6 @@ class ParameterCalibration(object):
             if np.isnan(self.logp_data[n]):
                 self.logp_data[n] = -np.inf
         return sum(self.logp_data)
-
-    # def likelihood(position):
-    #     y = np.copy(position)
-    #     logp_data = [0] * n_experiments
-    #     for n in range(n_experiments):
-    #         param_values[rates_mask] = 10 ** y
-    #         # equilibration
-    #         equil = solver.run(tspan=np.linspace(-500, 0, 2), param_values=param_values)
-    #         # add tumor cells
-    #         initials = equil.species[-1]
-    #         idx_tumor = [str(sp) for sp in model.species].index('Tumor()')  # get index of Tumor species
-    #         initials[idx_tumor] = 1  # fM
-    #         sim = solver.run(tspan=tspan[n], param_values=param_values, initials=initials).all
-    #         # calculate log-likelihood
-    #         for sp in like_data[n].keys():
-    #             logp_data[n] += np.sum(like_data[n][sp].logpdf(sim[sp][tspan_mask[n][sp]]))
-    #         if np.isnan(logp_data[n]):
-    #             logp_data[n] = -np.inf
-    #     return sum(logp_data)
 
     def run(self, niterations=50000, nchains=3, multitry=False, gamma_levels=4,  adapt_gamma=True,
             history_thin=1, verbose=True, plot_results=True):
@@ -192,9 +174,35 @@ class ParameterCalibration(object):
 
             print('Plotting parameter distributions')
             samples_files = glob.glob('dreamzs*params*')
-            param_samples = (
-                self.plot_param_dist(samples_files, labels=[self.model.parameters[i].name for i in self.parameter_idxs],
-                                     cutoff=2))
+            # get groups of parameters common for different sets of experiments
+            groups = []
+            filenames = []  # save info about which experiments each group is associated with in the filename
+            expt_idxs = [n for n in range(self.n_experiments)]
+            for n in expt_idxs:
+                for combo in combinations(expt_idxs, n + 1):  # all possible combinations of expt groups
+                    set_list_1 = [set(self.samples_idxs[i]) for i in combo]
+                    set_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
+                    if len(set_list_2) == 0:
+                        set_list_2 = [set()]  # empty set
+                    # get parameters unique to this group of expts (might be none)
+                    set_diff = set.intersection(*set_list_1) - set.intersection(*set_list_2)
+                    if len(set_diff) > 0:
+                        groups.append(sorted(list(set_diff)))
+                        filename = 'fig_PyDREAM_histograms_EXPTS'
+                        for i in combo:
+                            filename += '_%d' % i
+                        filenames.append(filename)
+            # get the parameter labels
+            labels = []
+            for group in groups:
+                labels.append([])
+                for i in group:
+                    for s_idx_list in self.samples_idxs:
+                        if i in s_idx_list:
+                            labels[-1].append(self.model.parameters[self.parameter_idxs[s_idx_list.index(i)]].name)
+            # make the plots
+            param_samples = self.plot_param_dist(samples_files, labels=labels, groups=groups, cutoff=2,
+                                                 save_plot=filenames)
 
             print('Plotting time courses')
             # get the time units for the x-label
@@ -340,9 +348,15 @@ class ParameterCalibration(object):
                     col += 1
             # save plots
             if save_plot is not None:
-                filename = 'fig_PyDREAM_histograms' if save_plot is True else save_plot
-                suffix = '' if len(groups) == 1 else '_group_%d' % n
-                plt.savefig(filename + suffix)
+                if save_plot is True:
+                    filename = 'fig_PyDREAM_histograms'
+                    suffix = '' if len(groups) == 1 else '_group_%d' % n
+                    filename += suffix
+                else:
+                    if len(groups) == 1:
+                        save_plot = [save_plot]
+                    filename = save_plot[n]
+                plt.savefig(filename)
 
         if show_plot:
             plt.show()

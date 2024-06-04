@@ -55,15 +55,15 @@ if __name__ == '__main__':
 
     print('Plotting parameter distributions')
     samples_files = glob.glob('dreamzs*params*')
-    param_samples = calibrator.plot_param_dist(samples_files,
-                                               labels=[calibrator.model.parameters[i].name
-                                                       for i in calibrator.parameter_idxs],
-                                               cutoff=2)
+    labels = [calibrator.model.parameters[i].name for i in calibrator.parameter_idxs]
+    param_samples = calibrator.plot_param_dist(samples_files, labels=labels, cutoff=2)
 
-    # groups = [[i for i in range(0, 12)],
-    #           [i for i in range(12, 30)]]
-    # labels = [[model.parameters[parameters_idxs[i]].name for i in group] for group in groups]
-    # plot_param_dist(samples, labels, groups=groups)
+    # code to test plotting parameter distributions using groups
+    # groups = [[i for i in range(0, 12)], [i for i in range(12, 30)]]
+    # labels = [[calibrator.model.parameters[calibrator.parameter_idxs[i]].name for i in group] for group in groups]
+    # filenames = ['fig_PyDREAM_histograms_PARAMS_%d_%d' % (i, j) for (i, j) in [(0, 11), (12, 29)]]
+    # param_samples = calibrator.plot_param_dist(samples_files, labels=labels, groups=groups, cutoff=2,
+    #                                            save_plot=filenames)
 
     print('Plotting time courses')
     tspan = np.linspace(0, 30, 31)  # time points after tumor injection
