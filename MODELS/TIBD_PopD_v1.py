@@ -31,13 +31,13 @@ if __name__ == '__main__':
     # If a parameter value is unique to an experiment, the group will be length 1. The default is for parameter values
     # to be common across all experiments, in which case there will be one group containing indices for all experiments.
     # This is handled internally, so only need to define cases where param values are NOT common across all expts.
-    param_expts_map = {'Cs': [[0, 1]],  # this is just here to show what the default is
-                       'k_tumor_div_basal': [[0], [1]],  # this and the following parameters can vary btwn the 2 expts
-                       'k_tumor_dth': [[0], [1]],
-                       'k_tumor_div_TGFb': [[0], [1]],
-                       'k_tumor_PTHrP': [[0], [1]],
-                       'k_tumor_OB': [[0], [1]],
-                       'k_tumor_OC': [[0], [1]]}
+    param_expts_map = {'Cs': [['A', 'B']],  # this is just here to show what the default is
+                       'k_tumor_div_basal': [['A'], ['B']],  # this and the following params can vary btwn the 2 expts
+                       'k_tumor_dth': [['A'], ['B']],
+                       'k_tumor_div_TGFb': [['A'], ['B']],
+                       'k_tumor_PTHrP': [['A'], ['B']],
+                       'k_tumor_OB': [['A'], ['B']],
+                       'k_tumor_OC': [['A'], ['B']]}
 
     calibrator = ParameterCalibration(model,
                                       exp_data_file,

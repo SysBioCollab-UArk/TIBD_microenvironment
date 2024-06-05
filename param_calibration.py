@@ -58,7 +58,7 @@ class ParameterCalibration(object):
                 print("Will sample parameter {} with {} prior around log10({}) = {}".format(p.name, prior,
                                                                                             p_value, np.log10(p_value)))
                 # loop over groups of experiments (default is one group with all experiments)
-                for group in param_expts_map.get(p.name, [[i for i in range(self.n_experiments)]]):
+                for group in param_expts_map.get(p.name, [[expt for expt in self.experiments]]):
                     if prior[0] == 'uniform':
                         self.sampled_params_list.append(SampledParam(uniform, loc=np.log10(p_value) - 0.5 * prior[1],
                                                                      scale=prior[1]))
@@ -68,7 +68,7 @@ class ParameterCalibration(object):
                         raise ValueError("Prior shape {} not recognized".format(prior[0]))
                     # save index of sampled_params_list for each experiment in the group
                     for n in range(self.n_experiments):
-                        if n in group:
+                        if self.experiments[n] in group:
                             self.samples_idxs[n].append(len(self.sampled_params_list) - 1)
 
         # create normal distributions around each data point to use in the likelihood function
@@ -175,33 +175,34 @@ class ParameterCalibration(object):
             print('Plotting parameter distributions')
             samples_files = glob.glob('dreamzs*params*')
             # get groups of parameters common for different sets of experiments
-            groups = []
+            param_groups = []
             filenames = []  # save info about which experiments each group is associated with in the filename
             expt_idxs = [n for n in range(self.n_experiments)]
             for n in expt_idxs:
                 for combo in combinations(expt_idxs, n + 1):  # all possible combinations of expt groups
-                    set_list_1 = [set(self.samples_idxs[i]) for i in combo]
-                    set_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
-                    if len(set_list_2) == 0:
-                        set_list_2 = [set()]  # empty set
+                    param_list_1 = [set(self.samples_idxs[i]) for i in combo]
+                    param_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
+                    if len(param_list_2) == 0:
+                        param_list_2 = [set()]  # empty set
                     # get parameters unique to this group of expts (might be none)
-                    set_diff = set.intersection(*set_list_1) - set.intersection(*set_list_2)
-                    if len(set_diff) > 0:
-                        groups.append(sorted(list(set_diff)))
+                    param_diff = set.intersection(*param_list_1) - set.intersection(*param_list_2)
+                    if len(param_diff) > 0:
+                        param_groups.append(sorted(list(param_diff)))
                         filename = 'fig_PyDREAM_histograms_EXPTS'
                         for i in combo:
-                            filename += '_%d' % i
+                            filename += '_%s' % str(self.experiments[i])  # cast to a string in case an integer
                         filenames.append(filename)
-            # get the parameter labels
-            labels = []
-            for group in groups:
-                labels.append([])
+            # get the parameter names to label the plots in the histogram
+            param_labels = []
+            for group in param_groups:
+                param_labels.append([])
                 for i in group:
                     for s_idx_list in self.samples_idxs:
                         if i in s_idx_list:
-                            labels[-1].append(self.model.parameters[self.parameter_idxs[s_idx_list.index(i)]].name)
+                            param_labels[-1].append(self.model.parameters[
+                                                        self.parameter_idxs[s_idx_list.index(i)]].name)
             # make the plots
-            param_samples = self.plot_param_dist(samples_files, labels=labels, groups=groups, cutoff=2,
+            param_samples = self.plot_param_dist(samples_files, labels=param_labels, groups=param_groups, cutoff=2,
                                                  save_plot=filenames)
 
             print('Plotting time courses')
