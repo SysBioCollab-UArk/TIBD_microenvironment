@@ -112,7 +112,7 @@ class ParameterCalibration(object):
         return sum(self.logp_data)
 
     def run(self, niterations=50000, nchains=3, multitry=False, gamma_levels=4,  adapt_gamma=True,
-            history_thin=1, verbose=True, plot_results=True):
+            history_thin=1, verbose=True, plot_results=True, plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
 
         sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
                                            likelihood=self.likelihood,
@@ -167,68 +167,100 @@ class ParameterCalibration(object):
                     converged = True
 
         if plot_results:
-
-            print('Plotting log-likelihoods')
             logps_files = glob.glob('dreamzs*logps*')
-            self.plot_log_likelihood(logps_files, cutoff=2)
-
-            print('Plotting parameter distributions')
             samples_files = glob.glob('dreamzs*params*')
-            # get groups of parameters common for different sets of experiments
-            param_groups = []
-            filenames = []  # save info about which experiments each group is associated with in the filename
-            expt_idxs = [n for n in range(self.n_experiments)]
-            for n in expt_idxs:
-                for combo in combinations(expt_idxs, n + 1):  # all possible combinations of expt groups
-                    param_list_1 = [set(self.samples_idxs[i]) for i in combo]
-                    param_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
-                    if len(param_list_2) == 0:
-                        param_list_2 = [set()]  # empty set
-                    # get parameters unique to this group of expts (might be none)
-                    param_diff = set.intersection(*param_list_1) - set.intersection(*param_list_2)
-                    if len(param_diff) > 0:
-                        param_groups.append(sorted(list(param_diff)))
-                        filename = 'fig_PyDREAM_histograms_EXPTS'
-                        for i in combo:
-                            filename += '_%s' % str(self.experiments[i])  # cast to a string in case an integer
-                        filenames.append(filename)
-            # get the parameter names to label the plots in the histogram
-            param_labels = []
-            for group in param_groups:
-                param_labels.append([])
-                for i in group:
-                    for s_idx_list in self.samples_idxs:
-                        if i in s_idx_list:
-                            param_labels[-1].append(self.model.parameters[
-                                                        self.parameter_idxs[s_idx_list.index(i)]].name)
-            # make the plots
-            param_samples = self.plot_param_dist(samples_files, labels=param_labels, groups=param_groups, cutoff=2,
-                                                 save_plot=filenames)
+            self.create_figures(logps_files, samples_files, plot_ll_args, plot_pd_args, plot_tc_args)
 
-            print('Plotting time courses')
-            # get the time units for the x-label
-            time_units = np.unique([d['time_units'] for d in self.raw_data])
-            if len(time_units) > 1:
-                print("WARNING: Multiple time units included in the data file. Using default 'time' for xlabel.")
-            xlabel = 'time (%s)' % time_units[0] if len(time_units) == 1 else 'time'
-            # get the amount units for the y-labels, which can be different for different observables
-            ylabels = []
-            for n in range(self.n_experiments):
-                ylabels.append([])
-                for obs in self.observables[n]:
-                    amount_units = np.unique([d['amount_units'] for d in self.raw_data if d['observable'] == obs
-                                              and d['expt_id'] == self.experiments[n]])
-                    if len(amount_units) > 1:
-                        print("WARNING: Multiple amount units included in the data file for observable %s (expt id %s)."
-                              " Using default 'amount' for ylabel.")
-                    ylabel = 'amount (%s)' % amount_units[0] if len(amount_units) == 1 else 'amount'
-                    ylabels[-1].append(ylabel)
-            # increase the number of time points for the simulations by a factor of 10
-            tspans = [np.linspace(self.tdata[n][0], self.tdata[n][-1],
-                                  int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
-                      for n in range(self.n_experiments)]
-            self.plot_timecourses(self.model, self.raw_data, self.sim_protocols, tspans, param_samples,
-                                  self.parameter_idxs, samples_idxs=self.samples_idxs, xlabel=xlabel, ylabels=ylabels)
+    def create_figures(self, logps_files, samples_files, show_plots=False, plot_ll_args=None, plot_pd_args=None,
+                       plot_tc_args=None):
+
+        # process plotting function arguments
+        _plot_ll_args = {'cutoff': 2}
+        _plot_pd_args = {'labels': None, 'groups': None, 'cutoff': 2, 'save_plot': None}
+        _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'separate_plots': True}
+        if plot_ll_args is not None:
+            _plot_ll_args.update(plot_ll_args)
+        if plot_pd_args is not None:
+            _plot_pd_args.update(plot_pd_args)
+        if plot_tc_args is not None:
+            _plot_tc_args.update(plot_tc_args)
+
+        print('Plotting log-likelihoods')
+        self.plot_log_likelihood(logps_files, **_plot_ll_args)
+
+        print('Plotting parameter distributions')
+        # get groups of parameters common for different sets of experiments
+        param_groups = []
+        filenames = []  # save info about which experiments each group is associated with in the filename
+        expt_idxs = [n for n in range(self.n_experiments)]
+        for n in expt_idxs:
+            for combo in combinations(expt_idxs, n + 1):  # all possible combinations of expt groups
+                param_list_1 = [set(self.samples_idxs[i]) for i in combo]
+                param_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
+                if len(param_list_2) == 0:
+                    param_list_2 = [set()]  # empty set
+                # get parameters unique to this group of expts (might be none)
+                param_diff = set.intersection(*param_list_1) - set.intersection(*param_list_2)
+                if len(param_diff) > 0:
+                    param_groups.append(sorted(list(param_diff)))
+                    filename = 'fig_PyDREAM_histograms_EXPTS'
+                    for i in combo:
+                        filename += '_%s' % str(self.experiments[i])  # cast to a string in case an integer
+                    filenames.append(filename)
+        # get the parameter names to label the plots in the histogram
+        param_labels = []
+        for group in param_groups:
+            param_labels.append([])
+            for i in group:
+                for s_idx_list in self.samples_idxs:
+                    if i in s_idx_list:
+                        param_labels[-1].append(
+                            self.model.parameters[self.parameter_idxs[s_idx_list.index(i)]].name)
+        # make the plots
+        if _plot_pd_args['labels'] is None:
+            _plot_pd_args['labels'] = param_labels
+        if _plot_pd_args['groups'] is None:
+            _plot_pd_args['groups'] = param_groups
+        if _plot_pd_args['save_plot'] is None:
+            _plot_pd_args['save_plot'] = filenames
+        param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
+
+        print('Plotting time courses')
+        # get the time units for the x-label
+        time_units = np.unique([d['time_units'] for d in self.raw_data])
+        if len(time_units) > 1:
+            print("WARNING: Multiple time units included in the data file. Using default 'time' for xlabel.")
+        xlabel = 'time (%s)' % time_units[0] if len(time_units) == 1 else 'time'
+        # get the amount units for the y-labels, which can be different for different observables
+        ylabels = []
+        for n in range(self.n_experiments):
+            ylabels.append([])
+            for obs in self.observables[n]:
+                amount_units = np.unique([d['amount_units'] for d in self.raw_data if d['observable'] == obs
+                                          and d['expt_id'] == self.experiments[n]])
+                if len(amount_units) > 1:
+                    print("WARNING: Multiple amount units included in the data file for observable %s (expt id %s)."
+                          " Using default 'amount' for ylabel.")
+                ylabel = 'amount (%s)' % amount_units[0] if len(amount_units) == 1 else 'amount'
+                ylabels[-1].append(ylabel)
+        # increase the number of time points for the simulations by a factor of 10
+        tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dictionary since it's not passed as a kwarg below
+        if tspans is None:
+            tspans = [np.linspace(
+                self.tdata[n][0], self.tdata[n][-1],
+                int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
+                for n in range(self.n_experiments)]
+        # make the plots
+        # _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None}
+        if _plot_tc_args['xlabel'] is None:
+            _plot_tc_args['xlabel'] = xlabel
+        if _plot_tc_args['ylabels'] is None:
+            _plot_tc_args['ylabels'] = ylabels
+        self.plot_timecourses(self.model, self.raw_data, self.sim_protocols, tspans, param_samples,
+                              self.parameter_idxs, samples_idxs=self.samples_idxs, **_plot_tc_args)
+
+        if show_plots:
+            plt.show()
 
     @staticmethod
     def plot_log_likelihood(logps_files, cutoff=None, show_plot=False, save_plot=True):
@@ -367,7 +399,7 @@ class ParameterCalibration(object):
 
     @staticmethod
     def plot_timecourses(model, exp_data, sim_protocols, tspans, param_samples, parameter_idxs, samples_idxs=None,
-                         show_plot=False, save_plot=True, **kwargs):
+                         show_plot=False, save_plot=True, separate_plots=True, **kwargs):
 
         # if there's only one experiment, put the following objects inside a list of size 1, since the following code
         # is set up to loop over the number of experiments
@@ -388,8 +420,11 @@ class ParameterCalibration(object):
         # process kwargs
         fill_between = kwargs.get('fill_between', (5, 95))
         cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # standard colors
-        colors = kwargs.get('colors', [[cycle[i % 10] for i in range(len(observables[n]))]
-                                       for n in range(n_experiments)])
+        colors = kwargs.get('colors',
+                            [[cycle[i % 10] for i in range(len(obs))] for obs in observables] if separate_plots
+                            else
+                            [[cycle[(i + len(observables[n]) * n) % 10] for i in range(len(observables[n]))]
+                             for n in range(n_experiments)])  # different colors if expts plotted on same plot
         locs = kwargs.get('locs', [[0] * len(observables[n]) for n in range(n_experiments)])
         xlabel = kwargs.get('xlabel', 'time')
         ylabels = kwargs.get('ylabels', [['amount'] * len(observables[n]) for n in range(n_experiments)])
@@ -421,12 +456,15 @@ class ParameterCalibration(object):
                 print(i, end=' ')
                 param_values[parameter_idxs] = 10 ** sample[samples_idxs[n]]
                 outputs.append(sim_protocols[n](solver, tspans[n], param_values))
+                if (i + 1) % 20 == 0:
+                    print()
             print()
             # use 'counts' to generate full set of simulation outputs for correct weighting for plots
             outputs = np.repeat(outputs, counts, axis=0)
             # plot results
             for i, obs_name in enumerate(observables[n]):
-                plt.figure(num='%s_%s' % (obs_name, experiments[n]), constrained_layout=True)
+                figname = '%s_expt_%s' % (obs_name, experiments[n]) if separate_plots else obs_name
+                plt.figure(num=figname, constrained_layout=True)
                 # plot simulated data as a percent envelope
                 yvals = np.array([output[obs_name] for output in outputs])
                 yvals_min = np.percentile(yvals, fill_between[0], axis=0)
@@ -437,17 +475,35 @@ class ParameterCalibration(object):
                 avg = [d['average'] for d in raw_data if d['observable'] == obs_name and d['expt_id'] == experiments[n]]
                 stderr = [d['stderr'] for d in raw_data if
                           d['observable'] == obs_name and d['expt_id'] == experiments[n]]
-                label = 'experiment' if n_experiments == 1 else 'experiment %d' % n
+                label = 'experiment' if n_experiments == 1 else 'experiment %s' % str(experiments[n])
                 plt.errorbar(time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, mfc=colors[n][i], mec=colors[n][i],
-                             ecolor='k', label=label)
+                             ecolor=colors[n][i], label=label)
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabels[n][i])
                 plt.legend(loc=locs[n][i])
 
-                if save_plot is not None:
-                    filename = 'fig_PyDREAM_tc_%s_expt_%s' % (obs_name, experiments[n]) if save_plot is True \
-                        else save_plot
+                if save_plot is not None and separate_plots:
+                    filename = 'fig_PyDREAM_tc_%s' % figname if save_plot is True else save_plot
                     plt.savefig(filename)
+
+        if save_plot is not None and not separate_plots:
+            # flatten the observables matrix and then pull out the unique names so we can loop over them
+            obs_names = np.unique(np.array(observables).flatten())
+            for obs_name in obs_names:
+                # need to loop over the experiments in order to get the correct legend location
+                for n in range(n_experiments):
+                    # check if the observable is in the list for this experiment. if it is, reorder the legend, save the
+                    # file, and break out of the loop
+                    if obs_name in observables[n]:
+                        filename = 'fig_PyDREAM_tc_%s' % obs_name if save_plot is True else save_plot
+                        # fix legend order
+                        plt.figure(num=obs_name)
+                        handles, labels = plt.gca().get_legend_handles_labels()
+                        idx_order = [j for j in range(0, len(handles), 2)] + [j for j in range(1, len(handles), 2)]
+                        plt.legend([handles[j] for j in idx_order], [labels[j] for j in idx_order],
+                                   loc=locs[n][list(observables[n]).index(obs_name)])
+                        plt.savefig(filename)
+                        break
 
         if show_plot:
             plt.show()
