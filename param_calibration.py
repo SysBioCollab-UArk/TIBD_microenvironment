@@ -9,6 +9,7 @@ import re
 import seaborn as sns
 import glob
 from itertools import combinations
+import os
 
 
 class ParameterCalibration(object):
@@ -265,6 +266,9 @@ class ParameterCalibration(object):
     @staticmethod
     def plot_log_likelihood(logps_files, cutoff=None, show_plot=False, save_plot=True):
 
+        # get the path from the first file
+        path, file = os.path.split(logps_files[0])
+
         # get chains and iterations from file names
         chains = []
         iterations = []
@@ -278,9 +282,9 @@ class ParameterCalibration(object):
         # read the likelihoods from the files
         log_ps = []
         for chain in chains:
-            log_ps.append(np.concatenate(
-                tuple(np.load('dreamzs_%dchain_logps_chain_%d_%d.npy' % (len(chains), chain, it)).flatten()
-                      for it in iterations)))
+            log_ps.append(np.concatenate(tuple(np.load(
+                os.path.join(path, 'dreamzs_%dchain_logps_chain_%d_%d.npy' % (len(chains), chain, it))).flatten()
+                                               for it in iterations)))
 
         # plot the likelihoods
         plt.figure(constrained_layout=True)
@@ -293,7 +297,7 @@ class ParameterCalibration(object):
             plt.plot(range(len(log_ps[chain])), log_ps[chain], label='chain %d' % chain)
             log_ps_max = np.max(log_ps[chain]) if log_ps_max < np.max(log_ps[chain]) else log_ps_max
             log_ps_mean += np.mean(log_ps[chain][burnin:]) / len(chains)
-            log_ps_var += np.var(log_ps[chain][burnin:]) / len(chains)  # this is the mean of the variances, but that's fine
+            log_ps_var += np.var(log_ps[chain][burnin:]) / len(chains)  # mean of the variances, but that's fine
         # plt.axvline()
         top = np.ceil(log_ps_mean + 5 * np.sqrt(log_ps_var))
         bottom = np.floor(log_ps_mean - 20 * np.sqrt(log_ps_var))
@@ -315,6 +319,9 @@ class ParameterCalibration(object):
     @staticmethod
     def plot_param_dist(sample_files, labels, groups=None, cutoff=None, show_plot=False, save_plot=True, **kwargs):
 
+        # get the path from the first file
+        path, file = os.path.split(sample_files[0])
+
         # get chains and iterations from file names
         chains = []
         iterations = []
@@ -327,15 +334,15 @@ class ParameterCalibration(object):
 
         # read in parameter values and likelihoods from files
         burnin = int(min(iterations) / 2)
-        samples = np.concatenate(
-            tuple(np.load('dreamzs_%dchain_sampled_params_chain_%d_%d.npy' %
-                          (len(chains), chain, max(iterations)))[burnin:] for chain in chains))
+        samples = np.concatenate(tuple(np.load(
+            os.path.join(path, 'dreamzs_%dchain_sampled_params_chain_%d_%d.npy' %
+                         (len(chains), chain, max(iterations))))[burnin:] for chain in chains))
 
         # if a likelihood cutoff is defined, load the likelihoods and remove samples that fall below the cutoff
         if cutoff is not None:
-            log_ps = np.concatenate(
-                tuple(np.load('dreamzs_%dchain_logps_chain_%d_%d.npy' % (len(chains), chain, max(iterations)))[burnin:]
-                      for chain in chains))
+            log_ps = np.concatenate(tuple(np.load(
+                os.path.join(path, 'dreamzs_%dchain_logps_chain_%d_%d.npy' %
+                             (len(chains), chain, max(iterations))))[burnin:] for chain in chains))
             log_ps_mean = np.mean(log_ps)
             log_ps_sdev = np.std(log_ps)
             keep_idxs = [i for i in range(len(samples)) if log_ps[i] > log_ps_mean - cutoff * log_ps_sdev]
@@ -386,9 +393,12 @@ class ParameterCalibration(object):
                     suffix = '' if len(groups) == 1 else '_group_%d' % n
                     filename += suffix
                 else:
-                    if len(groups) == 1:
-                        save_plot = [save_plot]
-                    filename = save_plot[n]
+                    if isinstance(save_plot, str):  # a string prefix has been passed
+                        filename = save_plot
+                        suffix = '' if len(groups) == 1 else '_group_%d' % n
+                        filename += suffix
+                    else:  # the last possibility is an array of filenames
+                        filename = save_plot[n]
                 plt.savefig(filename)
 
         if show_plot:
