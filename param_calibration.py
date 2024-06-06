@@ -459,7 +459,7 @@ class ParameterCalibration(object):
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
         print('Running %d simulations' % len(samples_unique))
         for n in range(n_experiments):
-            print('Experiment %s' % experiments[n])
+            print("Experiment '%s' (%d of %d)" % (str(experiments[n]), n+1, n_experiments))
             outputs = []
             # run simulations
             for i, sample in enumerate(samples_unique):
