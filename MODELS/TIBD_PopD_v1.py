@@ -64,7 +64,7 @@ if __name__ == '__main__':
     # uncomment the code below
     '''
     import glob
-    logps_files = glob.glob('SAVE/2024_06_01_pydream_it/dreamzs*logps*')
-    samples_files = glob.glob('SAVE/2024_06_01_pydream_it/dreamzs*params*')
+    logps_files = glob.glob('dreamzs*logps*')
+    samples_files = glob.glob('dreamzs*params*')
     calibrator.create_figures(logps_files, samples_files, show_plots=True, plot_tc_args={'separate_plots': False})
     '''
