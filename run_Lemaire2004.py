@@ -9,7 +9,7 @@ from MODULES.Lemaire2004 import create_model_elements as create_Lemaire_ME
 from MODULES.Harris2024 import create_model_elements as create_Harris_ME
 
 # experimental data
-exp_data = get_exp_data(os.path.join('DATA', 'Mouse_Data_May2024.csv'))
+exp_data = get_exp_data(os.path.join('OLD', 'Mouse_Data_May2024.csv'))
 
 # create the model
 Model()
@@ -85,7 +85,8 @@ linestyles = []
 sim = ScipyOdeSimulator(model, verbose=True)
 
 # equilibration
-tspans.append(np.linspace(-500, 0, 5001))  # 100, 1001)
+tspans.append(np.linspace(-500, 0, 5001))
+
 outputs.append(sim.run(tspan=tspans[-1]))
 linestyles.append('-')
 
