@@ -256,7 +256,6 @@ class ParameterCalibration(object):
                 int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
                 for n in range(self.n_experiments)]
         # make the plots
-        # _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None}
         if _plot_tc_args['xlabel'] is None:
             _plot_tc_args['xlabel'] = xlabel
         if _plot_tc_args['ylabels'] is None:
