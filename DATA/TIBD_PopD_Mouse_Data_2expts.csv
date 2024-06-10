@@ -7,10 +7,10 @@ C_obs,0,day,1.813058421,0.157569931,fM,A
 C_obs,7,day,2.895158124,0.703280056,fM,A
 C_obs,14,day,2.468460974,0.561666583,fM,A
 C_obs,21,day,6.147413427,0.581346031,fM,A
-Bone_tot,0,day,100,5,relative BV/TV,A
-Bone_tot,7,day,100,5.793150545,relative BV/TV,A
-Bone_tot,14,day,81.5376989,13.08880717,relative BV/TV,A
-Bone_tot,21,day,55.37269287,17.19009809,relative BV/TV,A
+Bone_tot,0,day,100,5,relative % BV/TV,A
+Bone_tot,7,day,100,5.793150545,relative % BV/TV,A
+Bone_tot,14,day,81.5376989,13.08880717,relative % BV/TV,A
+Bone_tot,21,day,55.37269287,17.19009809,relative % BV/TV,A
 Tumor_tot,0,day,0,5,fM,A
 Tumor_tot,7,day,0,10,fM,A
 Tumor_tot,14,day,499.1444808,153.4833243,fM,A
@@ -23,10 +23,10 @@ C_obs,0,day,1.8,0.16,fM,B
 C_obs,7,day,2.0,0.70,fM,B
 C_obs,14,day,2.7,0.56,fM,B
 C_obs,21,day,3.8,0.58,fM,B
-Bone_tot,0,day,100,5,relative BV/TV,B
-Bone_tot,7,day,100,5.793150545,relative BV/TV,B
-Bone_tot,14,day,90.0,13.0,relative BV/TV,B
-Bone_tot,21,day,75.0,17.2,relative BV/TV,B
+Bone_tot,0,day,100,5,relative % BV/TV,B
+Bone_tot,7,day,100,5.793150545,relative % BV/TV,B
+Bone_tot,14,day,90.0,13.0,relative % BV/TV,B
+Bone_tot,21,day,75.0,17.2,relative % BV/TV,B
 Tumor_tot,0,day,0,5,fM,B
 Tumor_tot,7,day,0,10,fM,B
 Tumor_tot,14,day,220.0,153.5,fM,B
