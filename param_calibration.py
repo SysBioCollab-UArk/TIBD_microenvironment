@@ -1,7 +1,7 @@
 from pydream.core import run_dream
 from pydream.parameters import SampledParam
 from pydream.convergence import Gelman_Rubin
-from pysb.simulator import ScipyOdeSimulator
+# from pysb.simulator import ScipyOdeSimulator
 from scipy.stats import norm, uniform
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +10,22 @@ import seaborn as sns
 import glob
 from itertools import combinations
 import os
+
+
+class SimulationProtocol(object):
+    def __init__(self, solver, equil=None):
+        self.solver = solver
+        self.equil = equil
+
+    # default simulation protocol (can be overwritten)
+    def run(self, tspan, param_values):
+        if self.equil is not None:
+            out = self.solver.run(tspan=np.linspace(-self.equil, 0, 2), param_values=param_values)
+            initials = out.species[-1]
+        else:
+            initials = None
+        output = self.solver.run(tspan=tspan, param_values=param_values, initials=initials).all
+        return output
 
 
 class ParameterCalibration(object):
@@ -94,9 +110,6 @@ class ParameterCalibration(object):
         # function is accessed, should save some time
         self.logp_data = [0.] * self.n_experiments
 
-        # create the simulator
-        self.solver = ScipyOdeSimulator(self.model)
-
     # likelihood function
     def likelihood(self, position):
         y = np.copy(position)
@@ -104,7 +117,7 @@ class ParameterCalibration(object):
             self.logp_data[n] = 0.  # reinitialize this to zero
             self.param_values[self.parameter_idxs] = 10 ** y[self.samples_idxs[n]]
             # run simulation
-            output = self.sim_protocols[n](self.solver, self.tdata[n], self.param_values)
+            output = self.sim_protocols[n].run(self.tdata[n], self.param_values)
             # calculate log-likelihood
             for obs in self.like_data[n].keys():
                 self.logp_data[n] += np.sum(self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]]))
@@ -473,9 +486,8 @@ class ParameterCalibration(object):
         if len(np.array(ylabels).shape) == 1:
             ylabels = [ylabels]
 
-        # store original parameter values and create simulator
+        # store original parameter values
         param_values = np.array([p.value for p in model.parameters])
-        solver = ScipyOdeSimulator(model, verbose=False)
 
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
@@ -493,7 +505,7 @@ class ParameterCalibration(object):
                 print(i, end=' ')
                 param_values[parameter_idxs] = 10 ** sample[samples_idxs[n]]
                 # TODO: let sim_protocol return a legend label for the simulated experiment
-                outputs.append(sim_protocols[n](solver, tspans[n], param_values))
+                outputs.append(sim_protocols[n].run(tspans[n], param_values))
                 if (i + 1) % 20 == 0:
                     print()
             print()
