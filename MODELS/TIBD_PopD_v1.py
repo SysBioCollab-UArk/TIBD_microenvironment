@@ -25,7 +25,7 @@ if __name__ == '__main__':
     tumor_injection = SequentialInjections(solver, equil=500, perturb_day_amount={'Tumor()': (0, 1)})
     custom_priors = {'N': ('uniform', 0.3)}
     no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'nB', 'nC', 'Tumor_0', 'CC_ON',
-                 'ALLEE_ON', 'A', 'Bisphos_0']
+                 'ALLEE_ON', 'A', 'Bisphos_0', 'k_bisphos_AOC']
     obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
                   'Tumor_tot': 'tumor cells'}
 
