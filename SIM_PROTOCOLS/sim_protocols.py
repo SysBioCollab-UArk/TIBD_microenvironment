@@ -16,18 +16,17 @@ class SequentialInjections(SimulationProtocol):
                 out = self.solver.run(tspan=np.linspace(-self.equil, 0, 2), param_values=param_values)
                 initials = out.species[-1]
             else:
-                initials = None
+                # set initials for next iteration
+                initials = self.solver.initials[0]
             # sort drug treatments by time of application and loop over them
             output = None
             for i, pda in enumerate(sorted(list(self.perturb_day_amount.items()), key=lambda x: x[1][0])):
                 perturb = pda[0]
                 day = pda[1][0]
                 amount = pda[1][1]
-                if day == 0:  # don't run a simulation
-                    # initials for next iteration
-                    initials = self.solver.initials[0]
-                else:
-                    if i == 0 and day > 0:  # run a simulation with no perturbation
+                # if day == 0, don't run a simulation
+                if day > 0:  # run a simulation
+                    if i == 0:  # run a simulation with no perturbation
                         tspan_i = [t for t in tspan if t <= day]
                     else:
                         tspan_i += [t for t in tspan if tspan_i[0] < t <= day]
@@ -49,3 +48,16 @@ class SequentialInjections(SimulationProtocol):
             raise Exception("'perturb_day_amount' must be either a dict or None.")
 
         return output
+
+
+if __name__ == "__main__":
+    from pysb.simulator import ScipyOdeSimulator
+    from MODELS.TIBD_PopD_v1 import model
+
+    sim = ScipyOdeSimulator(model)
+    protocol = SequentialInjections(sim, equil=500, perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+    result = protocol.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
+
+    print(result)
+    print(result.shape)
+    print(result.dtype.names)
