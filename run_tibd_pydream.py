@@ -7,9 +7,9 @@ if __name__ == '__main__':
 
     solver = ScipyOdeSimulator(model)
 
-    tumor_injection = SequentialInjections(solver, equil=500, perturb_day_amount={'Tumor()': (0, 1)})
-    bisphos_injection = SequentialInjections(solver, equil=500, perturb_day_amount={'Bisphos()': (6, 1)})
-    tumor_bisphos_injection = SequentialInjections(solver, equil=500,
+    tumor_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount={'Tumor()': (0, 1)})
+    bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount={'Bisphos()': (6, 1)})
+    tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
                                                    perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
 
     custom_priors = {'N': ('uniform', 0.3)}

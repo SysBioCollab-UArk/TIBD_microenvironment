@@ -13,14 +13,14 @@ import os
 
 
 class SimulationProtocol(object):
-    def __init__(self, solver, equil=None):
+    def __init__(self, solver, t_equil=None):
         self.solver = solver
-        self.equil = equil
+        self.t_equil = t_equil
 
     # default simulation protocol (can be overwritten)
     def run(self, tspan, param_values):
-        if self.equil is not None:
-            out = self.solver.run(tspan=np.linspace(-self.equil, 0, 2), param_values=param_values)
+        if self.t_equil is not None:
+            out = self.solver.run(tspan=np.linspace(-self.t_equil, 0, 2), param_values=param_values)
             initials = out.species[-1]
         else:
             initials = None

@@ -3,8 +3,8 @@ import numpy as np
 
 
 class SequentialInjections(SimulationProtocol):
-    def __init__(self, solver, equil=None, perturb_day_amount=None):
-        super().__init__(solver, equil)
+    def __init__(self, solver, t_equil=None, perturb_day_amount=None):
+        super().__init__(solver, t_equil)
         self.perturb_day_amount = perturb_day_amount
 
     def run(self, tspan, param_values):
@@ -12,8 +12,8 @@ class SequentialInjections(SimulationProtocol):
             output = super().run(tspan, param_values)
         elif isinstance(self.perturb_day_amount, dict):
             # equilibration
-            if self.equil is not None:
-                out = self.solver.run(tspan=np.linspace(-self.equil, 0, 2), param_values=param_values)
+            if self.t_equil is not None:
+                out = self.solver.run(tspan=np.linspace(-self.t_equil, 0, 2), param_values=param_values)
                 initials = out.species[-1]
             else:
                 # set initials for next iteration
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     from MODELS.TIBD_PopD_v1 import model
 
     sim = ScipyOdeSimulator(model)
-    protocol = SequentialInjections(sim, equil=500, perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+    protocol = SequentialInjections(sim, t_equil=500, perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
     result = protocol.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
 
     print(result)
