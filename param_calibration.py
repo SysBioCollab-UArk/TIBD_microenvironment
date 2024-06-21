@@ -125,19 +125,22 @@ class ParameterCalibration(object):
                 self.logp_data[n] = -np.inf
         return sum(self.logp_data)
 
-    def run(self, niterations=50000, nchains=3, multitry=False, gamma_levels=4,  adapt_gamma=True, history_thin=1,
-            verbose=True, obs_labels=None, plot_results=True, plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
+    def run(self, nchains=3, niterations=50000, start=None, restart=False, verbose=True, adapt_gamma=True,
+            history_thin=1, gamma_levels=4, multitry=False, obs_labels=None, plot_results=True, plot_ll_args=None,
+            plot_pd_args=None, plot_tc_args=None):
 
         sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
                                            likelihood=self.likelihood,
-                                           niterations=niterations,
                                            nchains=nchains,
-                                           multitry=multitry,
-                                           gamma_levels=gamma_levels,
+                                           niterations=niterations,
+                                           start=start,
+                                           restart=restart,
+                                           verbose=verbose,
                                            adapt_gamma=adapt_gamma,
                                            history_thin=history_thin,
-                                           model_name='dreamzs_%dchain' % nchains,
-                                           verbose=verbose)
+                                           gamma_levels=gamma_levels,
+                                           multitry=multitry,
+                                           model_name='dreamzs_%dchain' % nchains)
         total_iterations = niterations
         burnin = int(total_iterations / 2)
         # Save sampling output (sampled parameter values and their corresponding logps).
@@ -159,16 +162,16 @@ class ParameterCalibration(object):
                 burnin += niterations
                 sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
                                                    likelihood=self.likelihood,
-                                                   niterations=niterations,
                                                    nchains=nchains,
-                                                   multitry=multitry,
-                                                   gamma_levels=gamma_levels,
+                                                   niterations=niterations,
+                                                   start=starts,
+                                                   restart=True,
+                                                   verbose=verbose,
                                                    adapt_gamma=adapt_gamma,
                                                    history_thin=history_thin,
-                                                   model_name='dreamzs_%dchain' % nchains,
-                                                   verbose=verbose,
-                                                   start=starts,
-                                                   restart=True)
+                                                   gamma_levels=gamma_levels,
+                                                   multitry=multitry,
+                                                   model_name='dreamzs_%dchain' % nchains)
                 for chain in range(len(sampled_params)):
                     np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' %
                             (nchains, chain, total_iterations), sampled_params[chain])
