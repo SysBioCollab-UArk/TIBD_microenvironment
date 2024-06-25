@@ -333,7 +333,7 @@ class ParameterCalibration(object):
 
         if show_plot:
             plt.show()
-        if save_plot is not None:
+        if save_plot is not False:
             filename = 'fig_PyDREAM_log_ps' if save_plot is True else save_plot
             plt.savefig(filename)
 
