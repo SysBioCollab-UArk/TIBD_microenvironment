@@ -306,6 +306,7 @@ class ParameterCalibration(object):
             log_ps.append(np.concatenate(tuple(np.load(
                 os.path.join(path, 'dreamzs_%dchain_logps_chain_%d_%d.npy' % (len(chains), chain, it))).flatten()
                                                for it in iterations)))
+        log_ps = np.array(log_ps)
 
         # plot the likelihoods
         plt.figure(constrained_layout=True)
@@ -319,6 +320,9 @@ class ParameterCalibration(object):
             log_ps_max = np.max(log_ps[chain]) if log_ps_max < np.max(log_ps[chain]) else log_ps_max
             log_ps_mean += np.mean(log_ps[chain][burnin:]) / len(chains)
             log_ps_var += np.var(log_ps[chain][burnin:]) / len(chains)  # mean of the variances, but that's fine
+        # plot the mean over all chains
+        steps = list(np.arange(0, len(log_ps[0]), 2500))
+        plt.plot(steps, np.mean(log_ps, axis=0)[steps], 'k', lw=3, label='average')
         # plt.axvline()
         top = np.ceil(log_ps_mean + 5 * np.sqrt(log_ps_var))
         bottom = np.floor(log_ps_mean - 20 * np.sqrt(log_ps_var))
@@ -340,9 +344,6 @@ class ParameterCalibration(object):
     @staticmethod
     def plot_param_dist(sample_files, labels, groups=None, cutoff=None, show_plot=False, save_plot=True, **kwargs):
 
-        # get the path from the first file
-        path, file = os.path.split(sample_files[0])
-
         # get chains and iterations from file names
         chains = []
         iterations = []
@@ -352,24 +353,30 @@ class ParameterCalibration(object):
             iterations.append(int(m.group(2)))
         chains = np.unique(chains)
         iterations = np.unique(iterations)
+        burnin = int(max(iterations) / 2)  # discard first 50% of samples
 
         # read in parameter values and likelihoods from files
-        burnin = int(min(iterations) / 2)
-        samples = np.concatenate(tuple(np.load(
-            os.path.join(path, 'dreamzs_%dchain_sampled_params_chain_%d_%d.npy' %
-                         (len(chains), chain, max(iterations))))[burnin:] for chain in chains))
+        samples = []
+        for chain in chains:
+            files = [file for file in sample_files if re.search(r'chain_%d' % chain, file)]
+            samples.append(np.concatenate(tuple(np.load(file) for file in files)))
+        samples = np.concatenate(tuple(samples[chain][burnin:] for chain in chains))
 
         # if a likelihood cutoff is defined, load the likelihoods and remove samples that fall below the cutoff
         if cutoff is not None:
-            log_ps = np.concatenate(tuple(np.load(
-                os.path.join(path, 'dreamzs_%dchain_logps_chain_%d_%d.npy' %
-                             (len(chains), chain, max(iterations))))[burnin:] for chain in chains))
+            log_ps = []
+            for chain in chains:
+                files = [file.replace('sampled_params', 'logps')
+                         for file in sample_files if re.search(r'chain_%d' % chain, file)]
+                log_ps.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
+            log_ps = np.concatenate(tuple(log_ps[chain][burnin:] for chain in chains))
             log_ps_mean = np.mean(log_ps)
             log_ps_sdev = np.std(log_ps)
             keep_idxs = [i for i in range(len(samples)) if log_ps[i] > log_ps_mean - cutoff * log_ps_sdev]
             samples = samples[keep_idxs]
 
         # plot histograms
+        print("Number of samples: %d (of %d total)" % (len(samples), burnin * len(chains)))
         if groups is None:
             groups = [[i for i in range(len(samples[0]))]]
             labels = [labels]
@@ -408,7 +415,7 @@ class ParameterCalibration(object):
                     fig.delaxes(axs[row][col])
                     col += 1
             # save plots
-            if save_plot is not None:
+            if save_plot is not False:
                 if save_plot is True:
                     filename = 'fig_PyDREAM_histograms'
                     suffix = '' if len(groups) == 1 else '_group_%d' % n
@@ -494,14 +501,14 @@ class ParameterCalibration(object):
 
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
-        print('Running %d simulations' % len(samples_unique))
+        print('Running %d simulations (of %d samples)' % (len(samples_unique), len(param_samples)))
 
         # loop over simulations (experiments + perturbations)
         for n in range(n_sims):
             if n < n_experiments:
-                print("Experiment '%s' (%d of %d)" % (str(experiments[n]), n+1, n_experiments))
+                print("Experiment '%s' (%d of %d)..." % (str(experiments[n]), n+1, n_experiments))
             else:
-                print("Perturbation %d of %d" % (n - n_experiments + 1, n_sims - n_experiments))
+                print("Perturbation %d of %d..." % (n - n_experiments + 1, n_sims - n_experiments))
             outputs = []
             # run simulations
             for i, sample in enumerate(samples_unique):
@@ -511,21 +518,25 @@ class ParameterCalibration(object):
                 outputs.append(sim_protocols[n].run(tspans[n], param_values))
                 if (i + 1) % 20 == 0:
                     print()
-            print()
+            print('DONE')
             # use 'counts' to generate full set of simulation outputs for correct weighting for plots
             outputs = np.repeat(outputs, counts, axis=0)
             # plot results
             for i, obs_name in enumerate(observables[n]):
+                print(obs_name)
                 figname = '%s_sim_%s' % (obs_name, n) if separate_plots else obs_name
                 plt.figure(num=figname, constrained_layout=True)
                 # plot simulated data as a percent envelope
+                print('   Simulated data...', end='')
                 yvals = np.array([output[obs_name] for output in outputs])
                 yvals_min = np.percentile(yvals, fill_between[0], axis=0)
                 yvals_max = np.percentile(yvals, fill_between[1], axis=0)
                 plt.fill_between(tspans[n], yvals_min, yvals_max, alpha=0.25, color=colors[n][i],
                                  label=leg_labels[n][i])
+                print('DONE')
                 # plot experimental data
                 if n < n_experiments:
+                    print('   Experimental data...', end='')
                     time = [d['time'] for d in raw_data if d['observable'] == obs_name
                             and d['expt_id'] == experiments[n]]
                     avg = [d['average'] for d in raw_data if d['observable'] == obs_name
@@ -535,6 +546,7 @@ class ParameterCalibration(object):
                     label = 'experiment' if n_experiments == 1 else 'experiment %s' % str(experiments[n])
                     plt.errorbar(time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, mfc=colors[n][i], mec=colors[n][i],
                                  ecolor=colors[n][i], label=label)
+                    print('DONE')
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabels[n][i])
                 plt.legend(loc=locs[n][i])
