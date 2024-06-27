@@ -310,8 +310,8 @@ class ParameterCalibration(object):
 
         # plot the likelihoods
         plt.figure(constrained_layout=True)
-        # calculate mean and variance for last half of steps from last iteration
-        burnin = int(max(iterations)) - int(min(iterations) / 2)
+        # calculate mean and variance for last half of steps
+        burnin = int(max(iterations) / 2)
         log_ps_max = -np.inf
         log_ps_mean = 0
         log_ps_var = 0
@@ -321,8 +321,8 @@ class ParameterCalibration(object):
             log_ps_mean += np.mean(log_ps[chain][burnin:]) / len(chains)
             log_ps_var += np.var(log_ps[chain][burnin:]) / len(chains)  # mean of the variances, but that's fine
         # plot the mean over all chains
-        steps = list(np.arange(0, len(log_ps[0]), 2500))
-        plt.plot(steps, np.mean(log_ps, axis=0)[steps], 'k', lw=3, label='average')
+        steps = list(np.arange(0, len(log_ps[0]), len(log_ps[0]) // 100))
+        plt.plot(steps, np.mean(log_ps, axis=0)[steps], 'k', lw=2, label='average')
         # plt.axvline()
         top = np.ceil(log_ps_mean + 5 * np.sqrt(log_ps_var))
         bottom = np.floor(log_ps_mean - 20 * np.sqrt(log_ps_var))
@@ -342,7 +342,7 @@ class ParameterCalibration(object):
             plt.savefig(filename)
 
     @staticmethod
-    def plot_param_dist(sample_files, labels, groups=None, cutoff=None, show_plot=False, save_plot=True, **kwargs):
+    def plot_param_dist(sample_files, labels=None, groups=None, cutoff=None, show_plot=False, save_plot=True, **kwargs):
 
         # get chains and iterations from file names
         chains = []
@@ -379,7 +379,8 @@ class ParameterCalibration(object):
         print("Number of samples: %d (of %d total)" % (len(samples), burnin * len(chains)))
         if groups is None:
             groups = [[i for i in range(len(samples[0]))]]
-            labels = [labels]
+        if labels is None:
+            labels = [['p_%d_%d' % (i, j) for j in range(len(groups[i]))] for i in range(len(groups))]
         for n, label, group in zip(range(len(labels)), labels, groups):
             ndims = len(group)  # number of dimensions (i.e., parameters)
             # set plot parameters
