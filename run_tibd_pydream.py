@@ -1,7 +1,10 @@
 from MODELS.TIBD_PopD_v1 import model
+from MODULES.perturbations import add_bisphosphonate_components
 from param_calibration import *
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import SequentialInjections
+
+add_bisphosphonate_components()
 
 if __name__ == '__main__':
 
