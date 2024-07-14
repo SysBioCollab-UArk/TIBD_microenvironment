@@ -1,13 +1,11 @@
 from pysb import *
 from MODULES.Lemaire2004 import create_model_elements as create_Lemaire_ME
 from MODULES.Harris2024 import create_model_elements as create_Harris_ME
-from MODULES.perturbations import add_bisphosphonate_components
 
 Model()
 
 create_Lemaire_ME()  # TODO: consider passing in a scaling factor to adjust concentration units (e.g., pM to cells/mm)
 create_Harris_ME(OB_OC_BONE_MODEL=1)
-add_bisphosphonate_components()
 
 # modify a few parameter values
 R_0.value = 0.0  # fM
@@ -25,7 +23,7 @@ if __name__ == '__main__':
     tumor_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount={'Tumor()': (0, 1)})
     custom_priors = {'N': ('uniform', 0.3)}
     no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'nB', 'nC', 'Tumor_0', 'CC_ON',
-                 'ALLEE_ON', 'A', 'Bisphos_0', 'k_bisphos_AOC']
+                 'ALLEE_ON', 'A']
     obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
                   'Tumor_tot': 'tumor cells'}
 

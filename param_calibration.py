@@ -261,9 +261,10 @@ class ParameterCalibration(object):
                           " Using default 'amount' for ylabel.")
                 ylabel = 'amount (%s)' % amount_units[0] if len(amount_units) == 1 else 'amount'
                 ylabels[-1].append(ylabel)
-        # create observable legend labels if obs_labels exists
-        leg_labels = None if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name
-                                                       in self.observables[n]] for n in range(self.n_experiments)]
+        # create observable legend labels
+        leg_labels = [[obs_name for obs_name in self.observables[n]] for n in range(self.n_experiments)] \
+            if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name in self.observables[n]]
+                                        for n in range(self.n_experiments)]
         # increase the number of time points for the simulations by a factor of 10
         tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dictionary since it's not passed as a kwarg below
         if tspans is None:
