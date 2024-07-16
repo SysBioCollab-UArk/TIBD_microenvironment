@@ -1,6 +1,6 @@
 observable,time,time_units,average,stderr,amount_units,expt_id
-Bone_tot,0,day,100.0,14.2,relative % bone vol,Johnson2010 (PBS, Tumor)
-Bone_tot,7,day,103.3,17.7,relative % bone vol,Johnson2010 (PBS, Tumor)
-Bone_tot,14,day,96.0,13.6,relative % bone vol,Johnson2010 (PBS, Tumor)
-Bone_tot,21,day,86.6,13.6,relative % bone vol,Johnson2010 (PBS, Tumor)
-Bone_tot,28,day,75.9,18.7,relative % bone vol,Johnson2010 (PBS, Tumor)
+Bone_tot,0,day,100.0,14.2,relative % bone vol,Johnson2010 (PBS Tumor)
+Bone_tot,7,day,103.3,17.7,relative % bone vol,Johnson2010 (PBS Tumor)
+Bone_tot,14,day,96.0,13.6,relative % bone vol,Johnson2010 (PBS Tumor)
+Bone_tot,21,day,86.6,13.6,relative % bone vol,Johnson2010 (PBS Tumor)
+Bone_tot,28,day,75.9,18.7,relative % bone vol,Johnson2010 (PBS Tumor)
