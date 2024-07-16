@@ -1,6 +1,7 @@
-from TIBD_PopD_v1.py import model
+from MODELS.TIBD_PopD_v1 import model
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import SequentialInjections
+from param_calibration import *
 
 if __name__ == '__main__':
 
@@ -17,7 +18,8 @@ if __name__ == '__main__':
     obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
                   'Tumor_tot': 'tumor cells'}
 
-    exp_data_file = '../DATA/TIBD_PopD_Data.csv'
+    exp_data_file = '../DATA/TIBD_John2011_PBS_Tumor.csv'
+
     '''
     param_expts_map = {'k_tumor_div_basal': [['A'], ['B', 'C', 'D']],
                        'k_tumor_dth': [['A'], ['B', 'C', 'D']],
@@ -29,9 +31,9 @@ if __name__ == '__main__':
 
     calibrator = ParameterCalibration(model,
                                       exp_data_file,
-                                      [tumor_injection] #* 2 + [tumor_bisphos_injection, bisphos_injection],
+                                      [tumor_injection], #* 2 + [tumor_bisphos_injection, bisphos_injection],
                                       priors=custom_priors,
-                                      no_sample=no_sample,
+                                      no_sample=no_sample)
                                       #param_expts_map=param_expts_map)
 
     calibrator.run(niterations=50000, nchains=5, obs_labels=obs_labels, plot_results=True)
