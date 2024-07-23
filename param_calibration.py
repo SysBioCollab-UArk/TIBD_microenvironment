@@ -1,4 +1,4 @@
-from pydream.core import run_dream
+from pydream.core2 import run_dream2 as run_dream
 from pydream.parameters import SampledParam
 from pydream.convergence import Gelman_Rubin
 # from pysb.simulator import ScipyOdeSimulator
@@ -122,12 +122,12 @@ class ParameterCalibration(object):
             for obs in self.like_data[n].keys():
                 self.logp_data[n] += np.sum(self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]]))
             if np.isnan(self.logp_data[n]):
-                self.logp_data[n] = -np.inf
+                return -np.inf
         return sum(self.logp_data)
 
     def run(self, nchains=3, niterations=50000, start=None, restart=False, verbose=True, adapt_gamma=True,
             history_thin=1, gamma_levels=4, multitry=False, obs_labels=None, plot_results=True, plot_ll_args=None,
-            plot_pd_args=None, plot_tc_args=None):
+            plot_pd_args=None, plot_tc_args=None, mp_context=None, prefix='dreamzs'):
 
         sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
                                            likelihood=self.likelihood,
@@ -140,7 +140,9 @@ class ParameterCalibration(object):
                                            history_thin=history_thin,
                                            gamma_levels=gamma_levels,
                                            multitry=multitry,
-                                           model_name='dreamzs_%dchain' % nchains)
+                                           mp_context=mp_context,
+                                           model_name=f'{prefix}_{nchains}chain')
+
         total_iterations = niterations
         burnin = int(total_iterations / 2)
         # Save sampling output (sampled parameter values and their corresponding logps).
@@ -171,7 +173,7 @@ class ParameterCalibration(object):
                                                    history_thin=history_thin,
                                                    gamma_levels=gamma_levels,
                                                    multitry=multitry,
-                                                   model_name='dreamzs_%dchain' % nchains)
+                                                   model_name=f'{prefix}_{nchains}chain')
                 for chain in range(len(sampled_params)):
                     np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' %
                             (nchains, chain, total_iterations), sampled_params[chain])
