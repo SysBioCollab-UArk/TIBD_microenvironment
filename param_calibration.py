@@ -521,6 +521,11 @@ class ParameterCalibration(object):
                 if (i + 1) % 20 == 0:
                     print()
             print('DONE')
+            # remove any simulations that produced NaNs
+            idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))]
+            if len(idx_remove) > 0:
+                outputs = np.delete(outputs, idx_remove, axis=0)
+                counts = np.delete(counts, idx_remove, axis=0)
             # use 'counts' to generate full set of simulation outputs for correct weighting for plots
             outputs = np.repeat(outputs, counts, axis=0)
             # plot results
