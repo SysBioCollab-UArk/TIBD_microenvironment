@@ -218,9 +218,9 @@ class ParameterCalibration(object):
                 if len(param_list_2) == 0:
                     param_list_2 = [set()]  # empty set
                 # get parameters unique to this group of expts (might be none)
-                param_diff = set.intersection(*param_list_1) - set.intersection(*param_list_2)
+                param_diff = sorted(list(set.intersection(*param_list_1) - set.union(*param_list_2)))
                 if len(param_diff) > 0:
-                    param_groups.append(sorted(list(param_diff)))
+                    param_groups.append(param_diff)
                     filename = 'fig_PyDREAM_histograms_EXPTS'
                     for i in combo:
                         filename += '_%s' % str(self.experiments[i])  # cast to a string in case an integer
@@ -234,6 +234,7 @@ class ParameterCalibration(object):
                     if i in s_idx_list:
                         param_labels[-1].append(
                             self.model.parameters[self.parameter_idxs[s_idx_list.index(i)]].name)
+                        break
         # make the plots
         if _plot_pd_args['labels'] is None:
             _plot_pd_args['labels'] = param_labels
@@ -443,13 +444,15 @@ class ParameterCalibration(object):
 
         # if there's only one simulation to run, put the following objects inside a list of size 1, since the code
         # is set up to loop over the number of simulations
-        if len(np.array(tspans).shape) == 1:
+        # NOTE: checking first elements of 'tspans', 'observables', and 'samples_idxs' because they could be jagged, in
+        # which case calling 'np.array' would raise an error
+        if len(np.array(tspans[0]).shape) == 0:
             tspans = [tspans]
         if len(np.array(sim_protocols).shape) == 0:
             sim_protocols = [sim_protocols]
-        if observables is not None and len(np.array(observables).shape) == 1:
+        if observables is not None and len(np.array(observables[0]).shape) == 0:
             observables = [observables]
-        if samples_idxs is not None and len(np.array(samples_idxs).shape) == 1:
+        if samples_idxs is not None and len(np.array(samples_idxs[0]).shape) == 0:
             samples_idxs = [samples_idxs]
 
         # experimental data
@@ -491,11 +494,13 @@ class ParameterCalibration(object):
         ylabels = kwargs.get('ylabels', [['amount'] * len(observables[n]) for n in range(n_sims)])
         leg_labels = kwargs.get('leg_labels', [[obs_name for obs_name in observables[n]] for n in range(n_sims)])
         # make sure arrays are 2D
-        if len(np.array(colors).shape) == 1:
+        # NOTE: checking first elements of the 'colors', 'locs', and 'ylabels' arrays because they could be jagged, in
+        # which case calling 'np.array' would raise an error
+        if len(np.array(colors[0]).shape) == 0:
             colors = [colors]
-        if len(np.array(locs).shape) == 1:
+        if len(np.array(locs[0]).shape) == 0:
             locs = [locs]
-        if len(np.array(ylabels).shape) == 1:
+        if len(np.array(ylabels[0]).shape) == 0:
             ylabels = [ylabels]
 
         # store original parameter values
@@ -564,7 +569,7 @@ class ParameterCalibration(object):
 
         if save_plot is not None and not separate_plots:
             # flatten the observables matrix and then pull out the unique names so we can loop over them
-            obs_names = np.unique(np.array(observables).flatten())
+            obs_names = np.unique(np.concatenate([obs for obs in observables]))
             for obs_name in obs_names:
                 # need to loop over the experiments in order to get the correct legend location
                 for n in range(n_sims):
