@@ -120,9 +120,11 @@ class ParameterCalibration(object):
             output = self.sim_protocols[n].run(self.tdata[n], self.param_values)
             # calculate log-likelihood
             for obs in self.like_data[n].keys():
+                if np.any(np.isnan(output[obs])):  # return -inf if simulation returns NaNs
+                    return -np.inf
                 self.logp_data[n] += np.sum(self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]]))
-            if np.isnan(self.logp_data[n]):
-                self.logp_data[n] = -np.inf
+            if np.isnan(self.logp_data[n]):  # return -inf if logp is NaN
+                return -np.inf
         return sum(self.logp_data)
 
     def run(self, nchains=3, niterations=50000, start=None, restart=False, verbose=True, adapt_gamma=True,
@@ -526,7 +528,7 @@ class ParameterCalibration(object):
                 if (i + 1) % 20 == 0:
                     print()
             print('DONE')
-            # remove any simulations that produced NaNs
+            # remove any simulations that produced NaNs (this shouldn't happen anymore)
             idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))]
             outputs = np.delete(outputs, idx_remove, axis=0)
             counts_n = np.delete(counts, idx_remove, axis=0)  # don't change 'counts' array, make a copy
@@ -535,7 +537,7 @@ class ParameterCalibration(object):
             # plot results
             for i, obs_name in enumerate(observables[n]):
                 print(obs_name)
-                figname = '%s_sim_%s' % (obs_name, n) if separate_plots else obs_name
+                figname = '%s_sim_%s' % (obs_name, str(experiments[n])) if separate_plots else obs_name
                 plt.figure(num=figname, constrained_layout=True)
                 # plot simulated data as a percent envelope
                 print('   Simulated data...', end='')

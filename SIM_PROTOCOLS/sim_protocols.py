@@ -15,6 +15,9 @@ class SequentialInjections(SimulationProtocol):
             if self.t_equil is not None:
                 out = self.solver.run(tspan=np.linspace(-self.t_equil, 0, 2), param_values=param_values)
                 initials = out.species[-1]
+                # if there are NaNs in the initials, just return the current output
+                if np.any(np.isnan(initials)):
+                    return out.all
             else:
                 # set initials for next iteration
                 initials = self.solver.initials[0]
@@ -36,6 +39,9 @@ class SequentialInjections(SimulationProtocol):
                     output = sim_output.all if output is None else np.append(output, sim_output.all[1:])
                     # initials for next iteration
                     initials = sim_output.species[-1]
+                    # if there are NaNs in the initials, just return the current output
+                    if np.any(np.isnan(initials)):
+                        return output
                 # add perturbation to initials for next iteration
                 tspan_i = [day]
                 idx_perturb = [str(sp) for sp in self.solver.model.species].index(perturb)  # get index of perturbation
