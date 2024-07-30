@@ -196,7 +196,7 @@ class ParameterCalibration(object):
 
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
-        _plot_pd_args = {'labels': None, 'groups': None, 'cutoff': 2, 'save_plot': None}
+        _plot_pd_args = {'labels': None, 'groups': None, 'save_plot': None}
         _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
         if plot_ll_args is not None:
             _plot_ll_args.update(plot_ll_args)
@@ -242,6 +242,7 @@ class ParameterCalibration(object):
             _plot_pd_args['labels'] = param_labels
         if _plot_pd_args['groups'] is None:
             _plot_pd_args['groups'] = param_groups
+        _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
         if _plot_pd_args['save_plot'] is None:
             _plot_pd_args['save_plot'] = filenames
         param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
@@ -359,10 +360,12 @@ class ParameterCalibration(object):
         iterations = np.unique(iterations)
         burnin = int(max(iterations) / 2)  # discard first 50% of samples
 
-        # read in parameter values and likelihoods from files
+        # read in parameter values from files
         samples = []
         for chain in chains:
-            files = [file for file in sample_files if re.search(r'chain_%d' % chain, file)]
+            # get files and sort them numerically by number of iterations (using key=lambda function)
+            files = sorted([file for file in sample_files if re.search(r'chain_%d' % chain, file)],
+                           key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
             samples.append(np.concatenate(tuple(np.load(file) for file in files)))
         samples = np.concatenate(tuple(samples[chain][burnin:] for chain in chains))
 
@@ -370,8 +373,10 @@ class ParameterCalibration(object):
         if cutoff is not None:
             log_ps = []
             for chain in chains:
-                files = [file.replace('sampled_params', 'logps')
-                         for file in sample_files if re.search(r'chain_%d' % chain, file)]
+                # get files and sort them numerically by number of iterations (using key=lambda function)
+                files = sorted([file.replace('sampled_params', 'logps')
+                                for file in sample_files if re.search(r'chain_%d' % chain, file)],
+                               key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
                 log_ps.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
             log_ps = np.concatenate(tuple(log_ps[chain][burnin:] for chain in chains))
             log_ps_mean = np.mean(log_ps)
