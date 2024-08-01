@@ -1,7 +1,7 @@
 from MODELS.TIBD_PopD_v1.py import model
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import SequentialInjections
-
+from param_calibration import *
 
 if __name__ == '__main__':
 
