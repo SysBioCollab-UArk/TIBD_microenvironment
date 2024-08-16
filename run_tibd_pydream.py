@@ -13,8 +13,8 @@ bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount
 tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
                                                perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
 
-custom_priors = {'N': ('uniform', 0.3)}
-no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'nB', 'nC', 'Tumor_0', 'CC_ON',
+custom_priors = {'N': ('uniform', 0.3), 'nB': ('norm', 1), 'nC': ('norm', 1)}
+no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON',
              'ALLEE_ON', 'A', 'Bisphos_0']
 obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
               'Tumor_tot': 'tumor cells'}
