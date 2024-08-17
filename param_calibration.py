@@ -196,7 +196,7 @@ class ParameterCalibration(object):
 
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
-        _plot_pd_args = {'labels': None, 'groups': None, 'save_plot': None}
+        _plot_pd_args = {'labels': None, 'groups': None, 'save_plot': None, 'sharex': 'all', 'sharey': 'none'}
         _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
         if plot_ll_args is not None:
             _plot_ll_args.update(plot_ll_args)
@@ -399,15 +399,18 @@ class ParameterCalibration(object):
             fontsize = kwargs.get('fontsize', 10 * max(1, (3/5 * fscale)))
             ncols = kwargs.get('ncols', int(np.ceil(np.sqrt(ndims))))
             nrows = int(np.ceil(ndims/ncols))
+            sharex = kwargs.get('sharex', 'all')
+            sharey = kwargs.get('sharey', 'all')
             # create figure
             colors = sns.color_palette(n_colors=ndims)
-            fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=False, constrained_layout=True,
+            fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
             row = 0
             col = 0
             for dim in range(ndims):
                 print(group[dim], end=' ')
-                sns.distplot(samples[:, group[dim]], color=colors[dim], norm_hist=True, ax=axs[row][col])
+                # sns.distplot(samples[:, group[dim]], color=colors[dim], norm_hist=True, ax=axs[row][col])
+                sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col])
                 axs[row][col].set_yticklabels([])
                 axs[row][col].set_ylabel(None)
                 axs[row][col].set_title(label[dim], fontsize=labelsize)

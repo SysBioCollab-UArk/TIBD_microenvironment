@@ -18,4 +18,5 @@ calibrator = ParameterCalibration(model,
                                   param_expts_map=param_expts_map)
 
 # call the 'create_figures' function
-calibrator.create_figures(logps_files, samples_files, show_plots=True, plot_tc_args={'separate_plots': True})
+calibrator.create_figures(logps_files, samples_files, show_plots=True, plot_ll_args={'cutoff': 0.25},
+                          plot_pd_args={'sharex': True}, plot_tc_args={'separate_plots': False})
