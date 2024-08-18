@@ -3,14 +3,14 @@ import numpy as np
 
 
 class SequentialInjections(SimulationProtocol):
-    def __init__(self, solver, t_equil=None, perturb_day_amount=None):
+    def __init__(self, solver, t_equil=None, perturb_time_amount=None):
         super().__init__(solver, t_equil)
-        self.perturb_day_amount = perturb_day_amount
+        self.perturb_time_amount = perturb_time_amount
 
     def run(self, tspan, param_values):
-        if self.perturb_day_amount is None:  # just do the default simulation protocol
+        if self.perturb_time_amount is None:  # just do the default simulation protocol
             output = super().run(tspan, param_values)
-        elif isinstance(self.perturb_day_amount, dict):
+        elif isinstance(self.perturb_time_amount, dict):
             # equilibration
             if self.t_equil is not None:
                 out = self.solver.run(tspan=np.linspace(-self.t_equil, 0, 2), param_values=param_values)
@@ -23,10 +23,10 @@ class SequentialInjections(SimulationProtocol):
                 initials = self.solver.initials[0]
             # sort drug treatments by time of application and loop over them
             output = None
-            for i, pda in enumerate(sorted(list(self.perturb_day_amount.items()), key=lambda x: x[1][0])):
-                perturb = pda[0]
-                day = pda[1][0]
-                amount = pda[1][1]
+            for i, pta in enumerate(sorted(list(self.perturb_time_amount.items()), key=lambda x: x[1][0])):
+                perturb = pta[0]
+                day = pta[1][0]
+                amount = pta[1][1]
                 # if day == 0, don't run a simulation
                 if day > 0:  # run a simulation
                     if i == 0:  # run a simulation with no perturbation
@@ -51,7 +51,7 @@ class SequentialInjections(SimulationProtocol):
             sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
             output = sim_output.all if output is None else np.append(output, sim_output.all[1:])
         else:
-            raise Exception("'perturb_day_amount' must be either a dict or None.")
+            raise Exception("'perturb_time_amount' must be either a dict or None.")
 
         return output
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     from MODELS.TIBD_PopD_v1 import model
 
     sim = ScipyOdeSimulator(model)
-    protocol = SequentialInjections(sim, t_equil=500, perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+    protocol = SequentialInjections(sim, t_equil=500, perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
     result = protocol.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
 
     print(result)

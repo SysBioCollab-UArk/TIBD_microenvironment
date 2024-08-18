@@ -1,7 +1,6 @@
 from pydream.core import run_dream
 from pydream.parameters import SampledParam
 from pydream.convergence import Gelman_Rubin
-# from pysb.simulator import ScipyOdeSimulator
 from scipy.stats import norm, uniform
 import numpy as np
 import matplotlib.pyplot as plt

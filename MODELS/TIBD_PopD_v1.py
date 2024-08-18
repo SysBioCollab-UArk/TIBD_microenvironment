@@ -20,7 +20,7 @@ if __name__ == '__main__':
     from SIM_PROTOCOLS.sim_protocols import SequentialInjections
 
     solver = ScipyOdeSimulator(model)
-    tumor_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount={'Tumor()': (0, 1)})
+    tumor_injection = SequentialInjections(solver, t_equil=500, perturb_time_amount={'Tumor()': (0, 1)})
     custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
     no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC',
                  'ALLEE_ON', 'A']
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     param_labels = [model.parameters[i].name for i in calibrator.parameter_idxs]
     param_samples = calibrator.plot_param_dist(samples_files, param_labels, show_plot=True)
     tumor_bisphos_injection = SequentialInjections(solver, t_equil=500, 
-                                                   perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+                                                   perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
     sim_protocols = [tumor_injection, tumor_bisphos_injection]  # 1 experiment, 1 perturbation
     tspans = [np.linspace(calibrator.tdata[0][0], calibrator.tdata[0][-1],
                           int((calibrator.tdata[0][-1] - calibrator.tdata[0][0]) * 10 + 1))] * len(sim_protocols)

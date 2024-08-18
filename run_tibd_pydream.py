@@ -8,10 +8,10 @@ add_bisphosphonate_components()
 
 solver = ScipyOdeSimulator(model)
 
-tumor_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount={'Tumor()': (0, 1)})
-bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_day_amount={'Bisphos()': (6, 1)})
+tumor_injection = SequentialInjections(solver, t_equil=500, perturb_time_amount={'Tumor()': (0, 1)})
+bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_time_amount={'Bisphos()': (6, 1)})
 tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
-                                               perturb_day_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+                                               perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
 
 custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
 no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC',
