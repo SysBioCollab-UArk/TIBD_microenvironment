@@ -16,7 +16,6 @@ Tumor_tot,7,day,0,10,fM,A,Bennett2024
 Tumor_tot,14,day,499.1444808,153.4833243,fM,A,Bennett2024
 Tumor_tot,21,day,851.4691035,139.425068,fM,A,Bennett2024
 Bone_tot,0,day,100.0,14.2,relative % bone vol,B,Johnson2010 (PBS-Tumor)
-Bone_tot,6,day,100.0,14.2,relative % bone vol,B,Johnson2010 (PBS-Tumor)
 Bone_tot,7,day,103.3,17.7,relative % bone vol,B,Johnson2010 (PBS-Tumor)
 Bone_tot,14,day,96.0,13.6,relative % bone vol,B,Johnson2010 (PBS-Tumor)
 Bone_tot,21,day,86.6,13.6,relative % bone vol,B,Johnson2010 (PBS-Tumor)
