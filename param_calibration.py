@@ -399,7 +399,7 @@ class ParameterCalibration(object):
             ncols = kwargs.get('ncols', int(np.ceil(np.sqrt(ndims))))
             nrows = int(np.ceil(ndims/ncols))
             sharex = kwargs.get('sharex', 'all')
-            sharey = kwargs.get('sharey', 'all')
+            sharey = kwargs.get('sharey', 'none')
             # create figure
             colors = sns.color_palette(n_colors=ndims)
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
@@ -485,7 +485,7 @@ class ParameterCalibration(object):
         if len(np.unique([len(tspans), len(sim_protocols), len(observables), len(samples_idxs)])) != 1:
             raise Exception(
                 "The following arrays must all be equal length: 'tspans', 'sim_protocols', 'observables', "
-                "'sample_idxs")
+                "'samples_idxs")
 
         # number of simulations
         n_sims = len(tspans)
@@ -517,6 +517,8 @@ class ParameterCalibration(object):
 
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
+        # samples_unique = samples_unique[:10]
+        # counts = counts[:10]
         print('Running %d simulations (of %d samples)' % (len(samples_unique), len(param_samples)))
 
         # loop over simulations (experiments + perturbations)
@@ -578,7 +580,7 @@ class ParameterCalibration(object):
         if save_plot is not None and not separate_plots:
             # flatten the observables matrix and then pull out the unique names so we can loop over them
             obs_names = np.unique(np.concatenate([obs for obs in observables]))
-            for obs_name in obs_names:
+            for obs_name in obs_names:  # each plot is an observable, so this is actually a loop over all plots
                 # need to loop over the experiments in order to get the correct legend location
                 for n in range(n_sims):
                     # check if the observable is in the list for this experiment. if it is, reorder the legend, save the
@@ -589,8 +591,10 @@ class ParameterCalibration(object):
                         plt.figure(num=obs_name)
                         handles, labels = plt.gca().get_legend_handles_labels()
                         idx_order = []
-                        for i in range(n_experiments):
-                            idx_order += [j for j in range(i, len(handles), n_sims)]
+                        N = len([label for label in labels if 'experiment' in label])  # No. of expts in this plot
+                        M = len(labels) - N  # total number of sims in this plot
+                        for i in range(N):
+                            idx_order += [j for j in range(i, len(handles), M)]
                         idx_order += [j for j in range(len(handles)) if j not in idx_order]
                         plt.legend([handles[j] for j in idx_order], [labels[j] for j in idx_order],
                                    loc=locs[n][list(observables[n]).index(obs_name)])
