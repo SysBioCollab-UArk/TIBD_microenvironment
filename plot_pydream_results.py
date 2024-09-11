@@ -17,6 +17,43 @@ calibrator = ParameterCalibration(model,
                                   no_sample=no_sample,
                                   param_expts_map=param_expts_map)
 
-# call the 'create_figures' function
-calibrator.create_figures(logps_files, samples_files, show_plots=True, plot_ll_args={'cutoff': 0.25},
-                          plot_pd_args={'sharex': True}, plot_tc_args={'separate_plots': False})
+# plot results using the 'create_figures' function
+# calibrator.create_figures(logps_files, samples_files, obs_labels=obs_labels, show_plots=True,
+#                           plot_ll_args={'cutoff': 2}, plot_pd_args={'sharex': True},
+#                           plot_tc_args={'separate_plots': False})
+
+# run drug prediction simulations using the 'plot_timecourses' function
+### first get the parameter samples from the PyDREAM output files
+param_labels = [['k_tumor_div_basal', 'k_tumor_dth', 'k_tumor_div_TGFb', 'k_tumor_PTHrP', 'k_tumor_OB', 'k_tumor_OC'],
+                ['k_tumor_div_basal', 'k_tumor_dth', 'k_tumor_div_TGFb', 'k_tumor_PTHrP', 'k_tumor_OB', 'k_tumor_OC'],
+                ['Cs', 'DA', 'dB', 'DC', 'DR', 'K', 'k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'kB', 'KLP', 'kO', 'KOP', 'kP',
+                 'rL', 'SP', 'k1_B_builds_bone', 'k2_B_builds_bone', 'k1_C_consumes_bone', 'k2_C_consumes_bone', 'N',
+                 'k_bisphos_AOC']]
+param_groups = [[23, 25, 28, 30, 32, 34],
+                [24, 26, 29, 31, 33, 35],
+                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 36]]
+param_samples = calibrator.plot_param_dist(samples_files, labels=param_labels, groups=param_groups, cutoff=2,
+                                           show_plot=True)
+### now, add another simulation protocol to run the prediction simulation. also need another 'tspan', 'sample_idxs',
+### and 'observables'. since we are simulating the effect of ZA on Natalie's mice, the 'tspan',
+### 'sample_idxs', and 'observables' are the same as Experiment A (index 0).
+sim_protocols = calibrator.sim_protocols + [tumor_bisphos_injection]  # 4 experiments + 1 perturbation
+tspans = [np.linspace(calibrator.tdata[n][0], calibrator.tdata[n][-1],
+                      int((calibrator.tdata[n][-1] - calibrator.tdata[n][0]) * 10 + 1))
+          for n in range(len(calibrator.tdata))]
+tspans.append(tspans[0]) # Natalie's time points
+samples_idxs = calibrator.samples_idxs + [calibrator.samples_idxs[0]]
+observables = calibrator.observables + [calibrator.observables[0]]
+xlabel = 'time (day)'
+ylabels = [['amount (relative % BV/TV)'] + ['amount (fM)'] * 3,
+           ['amount (relative % BV/TV)'], ['amount (relative % BV/TV)'], ['amount (relative % BV/TV)'],
+           ['amount (relative % BV/TV)'] + ['amount (fM)'] * 3]
+### add an additional set of legend labels for the prediction simulation too
+leg_labels = [['bone density', 'osteoclasts', 'osteoblasts', 'tumor cells'],
+              ['bone density'], ['bone density'], ['bone density'],
+              ['bone density (+ZA)', 'osteoclasts (+ZA)', 'osteoblasts (+ZA)', 'tumor cells (+ZA)']]
+
+calibrator.plot_timecourses(model, tspans, sim_protocols, param_samples, calibrator.parameter_idxs,
+                            observables=observables, exp_data=calibrator.raw_data, samples_idxs=samples_idxs,
+                            show_plot=True, separate_plots=False, xlabel=xlabel, ylabels=ylabels,
+                            leg_labels=leg_labels)
