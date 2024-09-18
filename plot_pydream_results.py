@@ -43,15 +43,14 @@ tspans = [np.linspace(calibrator.tdata[n][0], calibrator.tdata[n][-1],
           for n in range(len(calibrator.tdata))]
 tspans.append(tspans[0]) # Natalie's time points
 samples_idxs = calibrator.samples_idxs + [calibrator.samples_idxs[0]]
-observables = calibrator.observables + [calibrator.observables[0]]
+# plot all observables for all experiments, even if there's no data for them
+observables = [calibrator.observables[0]] * len(sim_protocols)
 xlabel = 'time (day)'
-ylabels = [['amount (relative % BV/TV)'] + ['amount (fM)'] * 3,
-           ['amount (relative % BV/TV)'], ['amount (relative % BV/TV)'], ['amount (relative % BV/TV)'],
-           ['amount (relative % BV/TV)'] + ['amount (fM)'] * 3]
-### add an additional set of legend labels for the prediction simulation too
-leg_labels = [['bone density', 'osteoclasts', 'osteoblasts', 'tumor cells'],
-              ['bone density'], ['bone density'], ['bone density'],
-              ['bone density (+ZA)', 'osteoclasts (+ZA)', 'osteoblasts (+ZA)', 'tumor cells (+ZA)']]
+ylabels = [['amount (relative % BV/TV)'] + ['amount (fM)'] * 3] * len(sim_protocols)
+### add another set of legend labels for the prediction simulation too
+leg_labels = [['bone density', 'osteoclasts', 'osteoblasts', 'tumor cells']] * (len(sim_protocols) - 1) + \
+             [['bone density: Bennett +ZA', 'osteoclasts: Bennett +ZA', 'osteoblasts: Bennett +ZA',
+              'tumor cells: Bennett +ZA']]
 
 calibrator.plot_timecourses(model, tspans, sim_protocols, param_samples, calibrator.parameter_idxs,
                             observables=observables, exp_data=calibrator.raw_data, samples_idxs=samples_idxs,

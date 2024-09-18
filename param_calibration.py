@@ -490,14 +490,19 @@ class ParameterCalibration(object):
         # number of simulations
         n_sims = len(tspans)
 
+        # flatten the observables matrix and pull out the unique names so we can loop over them later
+        obs_names = np.unique(np.concatenate([obs for obs in observables]))
+
         # process kwargs
         fill_between = kwargs.get('fill_between', (5, 95))
         cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # standard colors
         colors = kwargs.get('colors',
-                            [[cycle[i % 10] for i in range(len(obs))] for obs in observables] if separate_plots
-                            else
-                            [[cycle[(i + len(observables[n]) * n) % 10] for i in range(len(observables[n]))]
-                             for n in range(n_sims)])  # different colors if sims plotted on same plot
+                            # each observable has a different color
+                            np.array([[cycle[i % 10] for j in range(n_sims)] for i in range(len(obs_names))]).T
+                            if separate_plots else
+                            # each experiment/simulation has a different color
+                            np.array([[cycle[j % 10] for j in range(n_sims)] for name in obs_names]).T)
+
         locs = kwargs.get('locs', [[0] * len(observables[n]) for n in range(n_sims)])
         xlabel = kwargs.get('xlabel', 'time')
         ylabels = kwargs.get('ylabels', [['amount'] * len(observables[n]) for n in range(n_sims)])
@@ -517,10 +522,11 @@ class ParameterCalibration(object):
 
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
+        # FOR DEBUGGING ###
         # samples_unique = samples_unique[:10]
         # counts = counts[:10]
+        # #################
         print('Running %d simulations (of %d samples)' % (len(samples_unique), len(param_samples)))
-
         # loop over simulations (experiments + perturbations)
         for n in range(n_sims):
             if n < n_experiments:
@@ -537,7 +543,7 @@ class ParameterCalibration(object):
                 if (i + 1) % 20 == 0:
                     print()
             print('DONE')
-            # remove any simulations that produced NaNs (this shouldn't happen anymore)
+            # remove any simulations that produced NaNs
             idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))]
             outputs = np.delete(outputs, idx_remove, axis=0)
             counts_n = np.delete(counts, idx_remove, axis=0)  # don't change 'counts' array, make a copy
@@ -546,7 +552,9 @@ class ParameterCalibration(object):
             # plot results
             for i, obs_name in enumerate(observables[n]):
                 print(obs_name)
-                figname = '%s_sim_%s' % (obs_name, str(experiments[n])) if separate_plots else obs_name
+                figname = '%s_exp_%s' % (obs_name, str(experiments[n])) if separate_plots and n < n_experiments \
+                    else '%s_sim_%s' % (obs_name, n - n_experiments + 1) if separate_plots and n >= n_experiments \
+                    else obs_name
                 plt.figure(num=figname, constrained_layout=True)
                 # plot simulated data as a percent envelope
                 print('   Simulated data...', end='')
@@ -558,7 +566,6 @@ class ParameterCalibration(object):
                 print('DONE')
                 # plot experimental data
                 if n < n_experiments:
-                    print('   Experimental data...', end='')
                     time = [d['time'] for d in raw_data if d['observable'] == obs_name
                             and d['expt_id'] == experiments[n]]
                     avg = [d['average'] for d in raw_data if d['observable'] == obs_name
@@ -568,7 +575,11 @@ class ParameterCalibration(object):
                     label = 'experiment' if n_experiments == 1 else 'experiment %s' % str(experiments[n])
                     plt.errorbar(time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, mfc=colors[n][i], mec=colors[n][i],
                                  ecolor=colors[n][i], label=label)
-                    print('DONE')
+                    # To avoid confusion, only print the following message if there is actual expt data
+                    # NOTE: to get the correct legend labels, we still need to make the errorbar plot above, even if
+                    # there is no expt data
+                    if len(time) > 0:
+                        print('   Experimental data...DONE')
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabels[n][i])
                 plt.legend(loc=locs[n][i])
@@ -578,8 +589,7 @@ class ParameterCalibration(object):
                     plt.savefig(filename)
 
         if save_plot is not None and not separate_plots:
-            # flatten the observables matrix and then pull out the unique names so we can loop over them
-            obs_names = np.unique(np.concatenate([obs for obs in observables]))
+            # 'obs_names' is an array of unique observables (defined above)
             for obs_name in obs_names:  # each plot is an observable, so this is actually a loop over all plots
                 # need to loop over the experiments in order to get the correct legend location
                 for n in range(n_sims):
@@ -590,14 +600,20 @@ class ParameterCalibration(object):
                         # fix legend order
                         plt.figure(num=obs_name)
                         handles, labels = plt.gca().get_legend_handles_labels()
-                        idx_order = []
                         N = len([label for label in labels if 'experiment' in label])  # No. of expts in this plot
                         M = len(labels) - N  # total number of sims in this plot
+
+                        new_handles = [tuple([handles[j] for j in range(i, len(handles), M)]) for i in range(N)] + \
+                                      [handles[i + N] for i in range(M-N)]
+                        new_labels = [': '.join([labels[j] for j in range(i, len(labels), M)]) for i in range(N)] + \
+                                     [labels[i + N] for i in range(M-N)]
+
+                        # if there are no expt data points, remove the second handle from the 'new_handles' tuples
                         for i in range(N):
-                            idx_order += [j for j in range(i, len(handles), M)]
-                        idx_order += [j for j in range(len(handles)) if j not in idx_order]
-                        plt.legend([handles[j] for j in idx_order], [labels[j] for j in idx_order],
-                                   loc=locs[n][list(observables[n]).index(obs_name)])
+                            if len(new_handles[i][1].lines[0].get_data()[0]) == 0:
+                                new_handles[i] = new_handles[i][0]
+
+                        plt.legend(new_handles, new_labels, loc=locs[n][list(observables[n]).index(obs_name)])
                         plt.savefig(filename)
                         break
 

@@ -1,0 +1,34 @@
+﻿observable,time,time_units,average,stderr,amount_units,expt_id,alt_exp_id
+OB_tot,0,day,21.06847903,1.733093843,fM,A,Bennett2024
+OB_tot,7,day,21.98499935,2.571975099,fM,A,Bennett2024
+OB_tot,14,day,10.09188786,1.332242162,fM,A,Bennett2024
+OB_tot,21,day,3.511884731,2.30420001,fM,A,Bennett2024
+C_obs,0,day,1.813058421,0.157569931,fM,A,Bennett2024
+C_obs,7,day,2.895158124,0.703280056,fM,A,Bennett2024
+C_obs,14,day,2.468460974,0.561666583,fM,A,Bennett2024
+C_obs,21,day,6.147413427,0.581346031,fM,A,Bennett2024
+Bone_tot,0,day,100,5,relative % BV/TV,A,Bennett2024
+Bone_tot,7,day,100,5.793150545,relative % BV/TV,A,Bennett2024
+Bone_tot,14,day,81.5376989,13.08880717,relative % BV/TV,A,Bennett2024
+Bone_tot,21,day,55.37269287,17.19009809,relative % BV/TV,A,Bennett2024
+Tumor_tot,0,day,0,5,fM,A,Bennett2024
+Tumor_tot,7,day,0,10,fM,A,Bennett2024
+Tumor_tot,14,day,499.1444808,153.4833243,fM,A,Bennett2024
+Tumor_tot,21,day,851.4691035,139.425068,fM,A,Bennett2024
+Bone_tot,0,day,100.0,5.0,relative % bone vol,B,Johnson2010 (PBS-Tumor)
+Bone_tot,7,day,103.3,5.0,relative % bone vol,B,Johnson2010 (PBS-Tumor)
+Bone_tot,14,day,96.0,5.0,relative % bone vol,B,Johnson2010 (PBS-Tumor)
+Bone_tot,21,day,86.6,5.0,relative % bone vol,B,Johnson2010 (PBS-Tumor)
+Bone_tot,28,day,75.9,5.0,relative % bone vol,B,Johnson2010 (PBS-Tumor)
+Bone_tot,0,day,100.0,5.0,relative % bone vol,C,Johnson2010 (ZA-Tumor)
+Bone_tot,6,day,100.0,5.0,relative % bone vol,C,Johnson2010 (ZA-Tumor)
+Bone_tot,7,day,121.8,5.0,relative % bone vol,C,Johnson2010 (ZA-Tumor)
+Bone_tot,14,day,126.6,5.0,relative % bone vol,C,Johnson2010 (ZA-Tumor)
+Bone_tot,21,day,135.3,5.0,relative % bone vol,C,Johnson2010 (ZA-Tumor)
+Bone_tot,28,day,128.0,5.0,relative % bone vol,C,Johnson2010 (ZA-Tumor)
+Bone_tot,0,day,100.0,5.0,relative % bone vol,D,Johnson2010 (ZA-NoTumor)
+Bone_tot,6,day,100.0,5.0,relative % bone vol,D,Johnson2010 (ZA-NoTumor)
+Bone_tot,7,day,105.8,5.0,relative % bone vol,D,Johnson2010 (ZA-NoTumor)
+Bone_tot,14,day,115.9,5.0,relative % bone vol,D,Johnson2010 (ZA-NoTumor)
+Bone_tot,21,day,125.6,5.0,relative % bone vol,D,Johnson2010 (ZA-NoTumor)
+Bone_tot,28,day,126.5,5.0,relative % bone vol,D,Johnson2010 (ZA-NoTumor)
