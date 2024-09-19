@@ -191,7 +191,15 @@ class ParameterCalibration(object):
                                 plot_pd_args=plot_pd_args, plot_tc_args=plot_tc_args)
 
     def create_figures(self, logps_files, samples_files, obs_labels=None, show_plots=False, plot_ll_args=None,
-                       plot_pd_args=None, plot_tc_args=None):
+                       plot_pd_args=None, plot_tc_args=None, which_plots='all'):
+
+        # which plots should we create? (NOTE: user can pass an integer too)
+        which_plots = \
+            3 if which_plots == 'all' or which_plots == 'll_pd_tc' else \
+            2 if which_plots == 'll_pd' else \
+            1 if which_plots == 'll' else \
+            0 if which_plots == 'none' else \
+            which_plots
 
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
@@ -204,88 +212,91 @@ class ParameterCalibration(object):
         if plot_tc_args is not None:
             _plot_tc_args.update(plot_tc_args)
 
-        print('Plotting log-likelihoods')
-        self.plot_log_likelihood(logps_files, **_plot_ll_args)
+        if which_plots > 0:
+            print('Plotting log-likelihoods')
+            self.plot_log_likelihood(logps_files, **_plot_ll_args)
 
-        print('Plotting parameter distributions')
-        # get groups of parameters common for different sets of experiments
-        param_groups = []
-        filenames = []  # save info about which experiments each group is associated with in the filename
-        expt_idxs = [n for n in range(self.n_experiments)]
-        for n in expt_idxs:
-            for combo in combinations(expt_idxs, n + 1):  # all possible combinations of expt groups
-                param_list_1 = [set(self.samples_idxs[i]) for i in combo]
-                param_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
-                if len(param_list_2) == 0:
-                    param_list_2 = [set()]  # empty set
-                # get parameters unique to this group of expts (might be none)
-                param_diff = sorted(list(set.intersection(*param_list_1) - set.union(*param_list_2)))
-                if len(param_diff) > 0:
-                    param_groups.append(param_diff)
-                    filename = 'fig_PyDREAM_histograms_EXPTS'
-                    for i in combo:
-                        filename += '_%s' % str(self.experiments[i])  # cast to a string in case an integer
-                    filenames.append(filename)
-        # get the parameter names to label the plots in the histogram
-        param_labels = []
-        for group in param_groups:
-            param_labels.append([])
-            for i in group:
-                for s_idx_list in self.samples_idxs:
-                    if i in s_idx_list:
-                        param_labels[-1].append(
-                            self.model.parameters[self.parameter_idxs[s_idx_list.index(i)]].name)
-                        break
-        # make the plots
-        if _plot_pd_args['labels'] is None:
-            _plot_pd_args['labels'] = param_labels
-        if _plot_pd_args['groups'] is None:
-            _plot_pd_args['groups'] = param_groups
-        _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
-        if _plot_pd_args['save_plot'] is None:
-            _plot_pd_args['save_plot'] = filenames
-        param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
+        if which_plots > 1:
+            print('Plotting parameter distributions')
+            # get groups of parameters common for different sets of experiments
+            param_groups = []
+            filenames = []  # save info about which experiments each group is associated with in the filename
+            expt_idxs = [n for n in range(self.n_experiments)]
+            for n in expt_idxs:
+                for combo in combinations(expt_idxs, n + 1):  # all possible combinations of expt groups
+                    param_list_1 = [set(self.samples_idxs[i]) for i in combo]
+                    param_list_2 = [set(self.samples_idxs[i]) for i in expt_idxs if i not in combo]
+                    if len(param_list_2) == 0:
+                        param_list_2 = [set()]  # empty set
+                    # get parameters unique to this group of expts (might be none)
+                    param_diff = sorted(list(set.intersection(*param_list_1) - set.union(*param_list_2)))
+                    if len(param_diff) > 0:
+                        param_groups.append(param_diff)
+                        filename = 'fig_PyDREAM_histograms_EXPTS'
+                        for i in combo:
+                            filename += '_%s' % str(self.experiments[i])  # cast to a string in case an integer
+                        filenames.append(filename)
+            # get the parameter names to label the plots in the histogram
+            param_labels = []
+            for group in param_groups:
+                param_labels.append([])
+                for i in group:
+                    for s_idx_list in self.samples_idxs:
+                        if i in s_idx_list:
+                            param_labels[-1].append(
+                                self.model.parameters[self.parameter_idxs[s_idx_list.index(i)]].name)
+                            break
+            # make the plots
+            if _plot_pd_args['labels'] is None:
+                _plot_pd_args['labels'] = param_labels
+            if _plot_pd_args['groups'] is None:
+                _plot_pd_args['groups'] = param_groups
+            _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
+            if _plot_pd_args['save_plot'] is None:
+                _plot_pd_args['save_plot'] = filenames
+            param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
 
-        print('Plotting time courses')
-        # get the time units for the x-label
-        time_units = np.unique([d['time_units'] for d in self.raw_data])
-        if len(time_units) > 1:
-            print("WARNING: Multiple time units included in the data file. Using default 'time' for xlabel.")
-        xlabel = 'time (%s)' % time_units[0] if len(time_units) == 1 else 'time'
-        # get the amount units for the y-labels, which can be different for different observables
-        ylabels = []
-        for n in range(self.n_experiments):
-            ylabels.append([])
-            for obs in self.observables[n]:
-                amount_units = np.unique([d['amount_units'] for d in self.raw_data if d['observable'] == obs
-                                          and d['expt_id'] == self.experiments[n]])
-                if len(amount_units) > 1:
-                    print("WARNING: Multiple amount units included in the data file for observable %s (expt id %s)."
-                          " Using default 'amount' for ylabel.")
-                ylabel = 'amount (%s)' % amount_units[0] if len(amount_units) == 1 else 'amount'
-                ylabels[-1].append(ylabel)
-        # create observable legend labels
-        leg_labels = [[obs_name for obs_name in self.observables[n]] for n in range(self.n_experiments)] \
-            if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name in self.observables[n]]
-                                        for n in range(self.n_experiments)]
-        # increase the number of time points for the simulations by a factor of 10
-        tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dictionary since it's not passed as a kwarg below
-        if tspans is None:
-            tspans = [np.linspace(
-                self.tdata[n][0], self.tdata[n][-1],
-                int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
-                for n in range(self.n_experiments)]
-        # make the plots
-        if _plot_tc_args['xlabel'] is None:
-            _plot_tc_args['xlabel'] = xlabel
-        if _plot_tc_args['ylabels'] is None:
-            _plot_tc_args['ylabels'] = ylabels
-        if _plot_tc_args['leg_labels'] is None:
-            _plot_tc_args['leg_labels'] = leg_labels
-        self.plot_timecourses(self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs,
-                              exp_data=self.raw_data, samples_idxs=self.samples_idxs, **_plot_tc_args)
+        if which_plots > 2:
+            print('Plotting time courses')
+            # get the time units for the x-label
+            time_units = np.unique([d['time_units'] for d in self.raw_data])
+            if len(time_units) > 1:
+                print("WARNING: Multiple time units included in the data file. Using default 'time' for xlabel.")
+            xlabel = 'time (%s)' % time_units[0] if len(time_units) == 1 else 'time'
+            # get the amount units for the y-labels, which can be different for different observables
+            ylabels = []
+            for n in range(self.n_experiments):
+                ylabels.append([])
+                for obs in self.observables[n]:
+                    amount_units = np.unique([d['amount_units'] for d in self.raw_data if d['observable'] == obs
+                                              and d['expt_id'] == self.experiments[n]])
+                    if len(amount_units) > 1:
+                        print("WARNING: Multiple amount units included in the data file for observable %s (expt id %s)."
+                              " Using default 'amount' for ylabel.")
+                    ylabel = 'amount (%s)' % amount_units[0] if len(amount_units) == 1 else 'amount'
+                    ylabels[-1].append(ylabel)
+            # create observable legend labels
+            leg_labels = [[obs_name for obs_name in self.observables[n]] for n in range(self.n_experiments)] \
+                if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name in self.observables[n]]
+                                            for n in range(self.n_experiments)]
+            # increase the number of time points for the simulations by a factor of 10
+            tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dictionary since it's not passed as a kwarg below
+            if tspans is None:
+                tspans = [np.linspace(
+                    self.tdata[n][0], self.tdata[n][-1],
+                    int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
+                    for n in range(self.n_experiments)]
+            # make the plots
+            if _plot_tc_args['xlabel'] is None:
+                _plot_tc_args['xlabel'] = xlabel
+            if _plot_tc_args['ylabels'] is None:
+                _plot_tc_args['ylabels'] = ylabels
+            if _plot_tc_args['leg_labels'] is None:
+                _plot_tc_args['leg_labels'] = leg_labels
+            self.plot_timecourses(self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs,
+                                  exp_data=self.raw_data, samples_idxs=self.samples_idxs, **_plot_tc_args)
 
-        if show_plots:
+        if show_plots and which_plots > 0:
             plt.show()
 
     @staticmethod
