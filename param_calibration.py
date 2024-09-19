@@ -201,6 +201,11 @@ class ParameterCalibration(object):
             0 if which_plots == 'none' else \
             which_plots
 
+        # error check
+        if not isinstance(which_plots, int):
+            raise Exception("'which_plots' must be an integer or one of the following strings: 'all', " +
+                            "'ll_pd_tc', 'll_pd', 'll', 'none'")
+
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
         _plot_pd_args = {'labels': None, 'groups': None, 'save_plot': None, 'sharex': 'all', 'sharey': 'none'}
