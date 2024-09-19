@@ -19,7 +19,7 @@ no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor
 obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
               'Tumor_tot': 'tumor cells'}
 
-exp_data_file = 'DATA/TIBD_PopD_Data.csv'
+exp_data_file = os.path.join('DATA', 'TIBD_PopD_Data.csv')
 
 param_expts_map = {'k_tumor_div_basal': [['A'], ['B', 'C', 'D']],
                    'k_tumor_dth': [['A'], ['B', 'C', 'D']],
