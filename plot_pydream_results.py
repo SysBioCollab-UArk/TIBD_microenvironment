@@ -19,8 +19,10 @@ calibrator = ParameterCalibration(model,
 
 # plot results using the 'create_figures' function
 # calibrator.create_figures(logps_files, samples_files, obs_labels=obs_labels, show_plots=True,
-#                           plot_ll_args={'cutoff': 2}, plot_pd_args={'sharex': True},
-#                           plot_tc_args={'separate_plots': False})
+#                           plot_ll_args={'cutoff': 2}, plot_pd_args={'sharex': 'all'},
+#                           plot_tc_args={'separate_plots': False}, which_plots=1)  # if only want to plot log-likelihoods
+#
+# quit()
 
 # run drug prediction simulations using the 'plot_timecourses' function
 ### first get the parameter samples from the PyDREAM output files
