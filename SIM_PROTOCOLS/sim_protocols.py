@@ -13,7 +13,7 @@ class SequentialInjections(SimulationProtocol):
         elif isinstance(self.perturb_time_amount, dict):
             # equilibration
             if self.t_equil is not None:
-                out = self.solver.run(tspan=np.linspace(-self.t_equil, 0, 2), param_values=param_values)
+                out = self.solver.run(tspan=np.linspace(-self.t_equil + tspan[0], tspan[0], 2), param_values=param_values)
                 initials = out.species[-1]
                 # if there are NaNs in the initials, just return the current output
                 if np.any(np.isnan(initials)):
@@ -27,8 +27,8 @@ class SequentialInjections(SimulationProtocol):
                 perturb = pta[0]
                 day = pta[1][0]
                 amount = pta[1][1]
-                # if day == 0, don't run a simulation
-                if day > 0:  # run a simulation
+                # if day == tspan[0], don't run a simulation
+                if day > tspan[0]:  # run a simulation
                     if i == 0:  # run a simulation with no perturbation
                         tspan_i = [t for t in tspan if t <= day]
                     else:

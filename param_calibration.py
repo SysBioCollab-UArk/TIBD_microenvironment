@@ -19,7 +19,7 @@ class SimulationProtocol(object):
     # default simulation protocol (can be overwritten)
     def run(self, tspan, param_values):
         if self.t_equil is not None:
-            out = self.solver.run(tspan=np.linspace(-self.t_equil, 0, 2), param_values=param_values)
+            out = self.solver.run(tspan=np.linspace(-self.t_equil + tspan[0], tspan[0], 2), param_values=param_values)
             initials = out.species[-1]
         else:
             initials = None
