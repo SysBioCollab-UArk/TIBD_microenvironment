@@ -9,6 +9,7 @@ import seaborn as sns
 import glob
 from itertools import combinations
 import os
+import csv
 
 
 class SimulationProtocol(object):
@@ -523,6 +524,7 @@ class ParameterCalibration(object):
         xlabel = kwargs.get('xlabel', 'time')
         ylabels = kwargs.get('ylabels', [['amount'] * len(observables[n]) for n in range(n_sims)])
         leg_labels = kwargs.get('leg_labels', [[obs_name for obs_name in observables[n]] for n in range(n_sims)])
+        save_sim_data = kwargs.get('save_sim_data', False)
         # make sure arrays are 2D
         # NOTE: checking first elements of the 'colors', 'locs', and 'ylabels' arrays because they could be jagged, in
         # which case calling 'np.array' would raise an error
@@ -542,8 +544,13 @@ class ParameterCalibration(object):
         # samples_unique = samples_unique[:10]
         # counts = counts[:10]
         # #################
-        print('Running %d simulations (of %d samples)' % (len(samples_unique), len(param_samples)))
+        # save simulation data, if requested
+        if save_sim_data:
+            csvfile = open("SIM_DATA.csv", 'w')
+            csvwriter = csv.writer(csvfile, delimiter=',')
+            csvwriter.writerow(['observable', 'time', 'yvals_min', 'yvals_max', 'sim_id'])
         # loop over simulations (experiments + perturbations)
+        print('Running %d simulations (of %d samples)' % (len(samples_unique), len(param_samples)))
         for n in range(n_sims):
             if n < n_experiments:
                 print("Experiment '%s' (%d of %d)..." % (str(experiments[n]), n+1, n_experiments))
@@ -554,7 +561,6 @@ class ParameterCalibration(object):
             for i, sample in enumerate(samples_unique):
                 print(i, end=' ')
                 param_values[parameter_idxs] = 10 ** sample[samples_idxs[n]]
-                # TODO: let sim_protocol return a legend label for the simulated experiment
                 outputs.append(sim_protocols[n].run(tspans[n], param_values))
                 if (i + 1) % 20 == 0:
                     print()
@@ -579,6 +585,11 @@ class ParameterCalibration(object):
                 yvals_max = np.percentile(yvals, fill_between[1], axis=0)
                 plt.fill_between(tspans[n], yvals_min, yvals_max, alpha=0.25, color=colors[n][i],
                                  label=leg_labels[n][i])
+                # save simulation data, if requested
+                if save_sim_data:
+                    sim_id = experiments[n] if n < n_experiments else n
+                    for line in zip(tspans[n], yvals_min, yvals_max):
+                        csvwriter.writerow([obs_name] + list(line) + [sim_id])
                 print('DONE')
                 # plot experimental data
                 if n < n_experiments:
@@ -603,6 +614,9 @@ class ParameterCalibration(object):
                 if save_plot is not None and separate_plots:
                     filename = 'fig_PyDREAM_tc_%s' % figname if save_plot is True else save_plot
                     plt.savefig(filename)
+
+        if save_sim_data:
+            csvfile.close()
 
         if save_plot is not None and not separate_plots:
             # 'obs_names' is an array of unique observables (defined above)
