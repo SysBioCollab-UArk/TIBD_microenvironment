@@ -70,6 +70,7 @@ fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.06), loc='center', f
 left = 0
 bottom = 0.12
 fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
+plt.savefig('Figure_3.pdf', format='pdf')
 
 # FIGURE 4: comparing PBS-Tumor from this work and Johnson (2011)
 nrows = 2
@@ -109,6 +110,7 @@ fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', f
 left = 0
 bottom = 0.08
 fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
+plt.savefig('Figure_4.pdf', format='pdf')
 
 # FIGURE 5: comparing PBS-Tumor and ZA-Tumor from this work
 nrows = 2
@@ -148,5 +150,6 @@ fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', f
 left = 0
 bottom = 0.08
 fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
+plt.savefig('Figure_5.pdf', format='pdf')
 
 plt.show()
