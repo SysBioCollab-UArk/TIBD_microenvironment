@@ -22,8 +22,8 @@ obs_labels = \
      'Tumor_tot': 'Tumor Cells'}
 
 legend_labels = \
-    {'A': 'This work: PBS-Tumor',
-     'B': 'Johnson (2011): PBS-Tumor',
+    {'A': 'This work: No Drug-Tumor',
+     'B': 'Johnson (2011): No Drug-Tumor',
      'C': 'Johnson (2011): ZA-Tumor',
      'D': 'Johnson (2011): ZA-No Tumor',
      '4': 'This work: ZA-Tumor'}
@@ -66,7 +66,7 @@ for obs_name in obs_names:
         row += 1
 # put the legend at the bottom of the figure
 handles, labels = axs[0, 0].get_legend_handles_labels()
-fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.06), loc='center', fontsize=12)
+fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.06), loc='center', fontsize=12, columnspacing=1)
 left = 0
 bottom = 0.12
 fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
@@ -106,7 +106,7 @@ for obs_name in obs_names:
         row += 1
 # put the legend at the bottom of the figure
 handles, labels = axs[0, 0].get_legend_handles_labels()
-fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12)
+fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12, columnspacing=1)
 left = 0
 bottom = 0.08
 fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
@@ -146,7 +146,7 @@ for obs_name in obs_names:
         row += 1
 # put the legend at the bottom of the figure
 handles, labels = axs[0, 0].get_legend_handles_labels()
-fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12)
+fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12, columnspacing=1)
 left = 0
 bottom = 0.08
 fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
