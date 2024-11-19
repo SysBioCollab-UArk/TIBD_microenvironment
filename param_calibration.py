@@ -310,6 +310,8 @@ class ParameterCalibration(object):
 
         # get the path from the first file
         path, file = os.path.split(logps_files[0])
+        m = re.search(r'(.+)_chain', file)
+        prefix = m.group(1)
 
         # get chains and iterations from file names
         chains = []
@@ -325,8 +327,7 @@ class ParameterCalibration(object):
         log_ps = []
         for chain in chains:
             log_ps.append(np.concatenate(tuple(np.load(
-                os.path.join(path, 'dreamzs_%dchain_logps_chain_%d_%d.npy' % (len(chains), chain, it))).flatten()
-                                               for it in iterations)))
+                os.path.join(path, '%s_chain_%d_%d.npy' % (prefix, chain, it))).flatten() for it in iterations)))
         log_ps = np.array(log_ps)
 
         # plot the likelihoods
@@ -336,11 +337,11 @@ class ParameterCalibration(object):
         log_ps_max = -np.inf
         log_ps_mean = 0
         log_ps_var = 0
-        for chain in chains:
-            plt.plot(range(len(log_ps[chain])), log_ps[chain], label='chain %d' % chain)
-            log_ps_max = np.max(log_ps[chain]) if log_ps_max < np.max(log_ps[chain]) else log_ps_max
-            log_ps_mean += np.mean(log_ps[chain][burnin:]) / len(chains)
-            log_ps_var += np.var(log_ps[chain][burnin:]) / len(chains)  # mean of the variances, but that's fine
+        for i, chain in enumerate(chains):
+            plt.plot(range(len(log_ps[i])), log_ps[i], label='chain %d' % chain)
+            log_ps_max = np.max(log_ps[i]) if log_ps_max < np.max(log_ps[i]) else log_ps_max
+            log_ps_mean += np.mean(log_ps[i][burnin:]) / len(chains)
+            log_ps_var += np.var(log_ps[i][burnin:]) / len(chains)  # mean of the variances, but that's fine
         # plot the mean over all chains
         steps = list(np.arange(0, len(log_ps[0]), len(log_ps[0]) // 100))
         plt.plot(steps, np.mean(log_ps, axis=0)[steps], 'k', lw=2, label='average')
@@ -377,28 +378,34 @@ class ParameterCalibration(object):
         burnin = int(max(iterations) / 2)  # discard first 50% of samples
 
         # read in parameter values from files
-        samples = []
+        samples_chain = []
         for chain in chains:
             # get files and sort them numerically by number of iterations (using key=lambda function)
             files = sorted([file for file in sample_files if re.search(r'chain_%d' % chain, file)],
                            key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
-            samples.append(np.concatenate(tuple(np.load(file) for file in files)))
-        samples = np.concatenate(tuple(samples[chain][burnin:] for chain in chains))
+            samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
+        # samples = np.concatenate(tuple(samples_chain[chain][burnin:] for chain in range(len(chains))))
 
         # if a likelihood cutoff is defined, load the likelihoods and remove samples that fall below the cutoff
         if cutoff is not None:
-            log_ps = []
+            log_ps_chain = []
             for chain in chains:
                 # get files and sort them numerically by number of iterations (using key=lambda function)
                 files = sorted([file.replace('sampled_params', 'logps')
                                 for file in sample_files if re.search(r'chain_%d' % chain, file)],
                                key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
-                log_ps.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
-            log_ps = np.concatenate(tuple(log_ps[chain][burnin:] for chain in chains))
+                log_ps_chain.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
+            log_ps = np.concatenate(tuple(log_ps_chain[chain][burnin:] for chain in range(len(chains))))
             log_ps_mean = np.mean(log_ps)
             log_ps_sdev = np.std(log_ps)
-            keep_idxs = [i for i in range(len(samples)) if log_ps[i] > log_ps_mean - cutoff * log_ps_sdev]
-            samples = samples[keep_idxs]
+            # get indices for samples with log-likelihood > cutoff
+            for chain in range(len(chains)):
+                keep_idxs = [i for i in range(burnin, len(samples_chain[chain]))
+                             if log_ps_chain[chain][i] > log_ps_mean - cutoff * log_ps_sdev]
+                samples_chain[chain] = samples_chain[chain][keep_idxs]
+
+        # combine all samples together
+        samples = np.concatenate(tuple(samples_chain[chain] for chain in range(len(chains))))
 
         # plot histograms
         print("Number of samples: %d (of %d total)" % (len(samples), burnin * len(chains)))
@@ -421,16 +428,29 @@ class ParameterCalibration(object):
             colors = sns.color_palette(n_colors=ndims)
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
+            ##### TODO
+            fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex='none', sharey=sharey, constrained_layout=True,
+                                      figsize=figsize)
+            #####
             row = 0
             col = 0
             for dim in range(ndims):
                 print(group[dim], end=' ')
-                # sns.distplot(samples[:, group[dim]], color=colors[dim], norm_hist=True, ax=axs[row][col])
                 sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col])
                 axs[row][col].set_yticklabels([])
                 axs[row][col].set_ylabel(None)
                 axs[row][col].set_title(label[dim], fontsize=labelsize)
                 axs[row][col].tick_params(axis='x', labelsize=labelsize)
+                ##### TODO
+                for chain in range(len(chains)):
+                    sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col])
+                    #, label='chain %d' % chains[chain])
+                # axs2[row][col].legend(loc=0)
+                axs2[row][col].set_yticklabels([])
+                axs2[row][col].set_ylabel(None)
+                axs2[row][col].set_title(label[dim], fontsize=labelsize)
+                axs2[row][col].tick_params(axis='x', labelsize=labelsize)
+                #####
                 col += 1
                 if col % ncols == 0:
                     col = 0
@@ -438,10 +458,17 @@ class ParameterCalibration(object):
             print()
             fig.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
             fig.supylabel('Density', fontsize=fontsize)
+            ##### TODO
+            fig2.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
+            fig2.supylabel('Density', fontsize=fontsize)
+            #####
             # delete extra plots
             if col > 0:
                 while col < ncols:
                     fig.delaxes(axs[row][col])
+                    ##### TODO
+                    fig2.delaxes(axs[row][col])
+                    #####
                     col += 1
             # save plots
             if save_plot is not False:
@@ -456,7 +483,7 @@ class ParameterCalibration(object):
                         filename += suffix
                     else:  # the last possibility is an array of filenames
                         filename = save_plot[n]
-                plt.savefig(filename)
+                fig.savefig(filename)
 
         if show_plot:
             plt.show()
