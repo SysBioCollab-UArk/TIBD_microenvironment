@@ -429,8 +429,8 @@ class ParameterCalibration(object):
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
             ##### TODO
-            fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex='none', sharey=sharey, constrained_layout=True,
-                                      figsize=figsize)
+            # fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex='none', sharey=sharey, constrained_layout=True,
+            #                           figsize=figsize)
             #####
             row = 0
             col = 0
@@ -442,14 +442,14 @@ class ParameterCalibration(object):
                 axs[row][col].set_title(label[dim], fontsize=labelsize)
                 axs[row][col].tick_params(axis='x', labelsize=labelsize)
                 ##### TODO
-                for chain in range(len(chains)):
-                    sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col])
-                    #, label='chain %d' % chains[chain])
-                # axs2[row][col].legend(loc=0)
-                axs2[row][col].set_yticklabels([])
-                axs2[row][col].set_ylabel(None)
-                axs2[row][col].set_title(label[dim], fontsize=labelsize)
-                axs2[row][col].tick_params(axis='x', labelsize=labelsize)
+                # for chain in range(len(chains)):
+                #     sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col])
+                #     #, label='chain %d' % chains[chain])
+                # # axs2[row][col].legend(loc=0)
+                # axs2[row][col].set_yticklabels([])
+                # axs2[row][col].set_ylabel(None)
+                # axs2[row][col].set_title(label[dim], fontsize=labelsize)
+                # axs2[row][col].tick_params(axis='x', labelsize=labelsize)
                 #####
                 col += 1
                 if col % ncols == 0:
@@ -459,15 +459,15 @@ class ParameterCalibration(object):
             fig.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
             fig.supylabel('Density', fontsize=fontsize)
             ##### TODO
-            fig2.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
-            fig2.supylabel('Density', fontsize=fontsize)
+            # fig2.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
+            # fig2.supylabel('Density', fontsize=fontsize)
             #####
             # delete extra plots
             if col > 0:
                 while col < ncols:
                     fig.delaxes(axs[row][col])
                     ##### TODO
-                    fig2.delaxes(axs[row][col])
+                    # fig2.delaxes(axs[row][col])
                     #####
                     col += 1
             # save plots
