@@ -286,7 +286,7 @@ class ParameterCalibration(object):
                 if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name in self.observables[n]]
                                             for n in range(self.n_experiments)]
             # increase the number of time points for the simulations by a factor of 10
-            tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dictionary since it's not passed as a kwarg below
+            tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dict since it's not passed as a kwarg below
             if tspans is None:
                 tspans = [np.linspace(
                     self.tdata[n][0], self.tdata[n][-1],
@@ -299,8 +299,11 @@ class ParameterCalibration(object):
                 _plot_tc_args['ylabels'] = ylabels
             if _plot_tc_args['leg_labels'] is None:
                 _plot_tc_args['leg_labels'] = leg_labels
+            # pop separate_plots out of the dict since it's not passed as a kwarg below
+            separate_plots = _plot_tc_args.pop('separate_plots')
             self.plot_timecourses(self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs,
-                                  exp_data=self.raw_data, samples_idxs=self.samples_idxs, **_plot_tc_args)
+                                  exp_data=self.raw_data, samples_idxs=self.samples_idxs,
+                                  separate_plots=separate_plots, **_plot_tc_args)
 
         if show_plots and which_plots > 0:
             plt.show()
