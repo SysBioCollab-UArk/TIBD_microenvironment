@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-expt_data_file = os.path.join('DATA', 'TIBD_PopD_Data_stderr5.csv')
+expt_data_file = os.path.join('DATA', 'TIBD_PopD_Data.csv')
 expt_data = np.genfromtxt(expt_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
 print(expt_data.dtype.names)
 
@@ -40,18 +40,18 @@ for obs_name in obs_names:
     axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
     for sim_id in sim_ids:
         # check if experimental data exists
-        expt_time = [d['time'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-        if len(expt_time) > 0:
+        expt_xvals = [d['xval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+        if len(expt_xvals) > 0:
             # plot simulation data
-            sim_time = [d['time'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-            yvals_min = [d['yvals_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-            yvals_max = [d['yvals_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            sim_time = [d['xval'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
             axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
                                        color=colors[sim_id])
             # plot experimental data
-            avg = [d['average'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+            yvals = [d['yval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
             stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            axs[row, col].errorbar(expt_time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
+            axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
     if row == nrows - 1:
         axs[row, col].set_xlabel('Time (day)', fontsize=14)
     ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
@@ -81,17 +81,17 @@ for obs_name in obs_names:
     axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
     for sim_id in ['A', 'B']:
         # plot simulation data
-        sim_time = [d['time'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_min = [d['yvals_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_max = [d['yvals_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+        sim_time = [d['xval'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+        yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+        yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
         axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
                                    color=colors[sim_id])
         # plot experimental data, if it exists
-        expt_time = [d['time'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-        if len(expt_time) > 0:
-            avg = [d['average'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+        expt_xvals = [d['xval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+        if len(expt_xvals) > 0:
+            yvals = [d['yval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
             stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            axs[row, col].errorbar(expt_time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
+            axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
     if row == nrows - 1:
         axs[row, col].set_xlabel('Time (day)', fontsize=14)
     ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
@@ -121,17 +121,17 @@ for obs_name in obs_names:
     axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
     for sim_id in ['A', '4']:
         # plot simulation data
-        sim_time = [d['time'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_min = [d['yvals_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_max = [d['yvals_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+        sim_time = [d['xval'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+        yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+        yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
         axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
                                    color=colors[sim_id])
         # plot experimental data, if it exists
-        expt_time = [d['time'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-        if len(expt_time) > 0:
-            avg = [d['average'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+        expt_xvals = [d['xval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+        if len(expt_xvals) > 0:
+            avg = [d['yval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
             stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            axs[row, col].errorbar(expt_time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
+            axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
     if row == nrows - 1:
         axs[row, col].set_xlabel('Time (day)', fontsize=14)
     ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'

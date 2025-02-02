@@ -38,4 +38,4 @@ if __name__ == '__main__':
                                       param_expts_map=param_expts_map)
 
     calibrator.run(niterations=50000, nchains=5, obs_labels=obs_labels, plot_results=True,
-                   plot_tc_args={'separate_plots': False})
+                   plot_tc_args={'separate_plots': False, 'save_sim_data': True})

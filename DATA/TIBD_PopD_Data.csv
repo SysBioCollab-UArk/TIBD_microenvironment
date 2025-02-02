@@ -1,4 +1,4 @@
-﻿observable,time,time_units,average,stderr,amount_units,expt_id,alt_exp_id
+﻿observable,xval,x_units,yval,stderr,y_units,expt_id,alt_exp_id
 OB_tot,0,day,21.06847903,1.733093843,fM,A,Bennett2024
 OB_tot,7,day,21.98499935,2.571975099,fM,A,Bennett2024
 OB_tot,14,day,10.09188786,1.332242162,fM,A,Bennett2024
