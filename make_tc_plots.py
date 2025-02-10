@@ -40,16 +40,16 @@ for obs_name in obs_names:
     axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
     for sim_id in sim_ids:
         # check if experimental data exists
-        expt_xvals = [d['xval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+        expt_xvals = [d['time'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
         if len(expt_xvals) > 0:
             # plot simulation data
-            sim_time = [d['xval'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            sim_time = [d['time'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
             yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
             yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
             axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
                                        color=colors[sim_id])
             # plot experimental data
-            yvals = [d['yval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+            yvals = [d['average'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
             stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
             axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
     if row == nrows - 1:
@@ -73,83 +73,49 @@ fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left,
 plt.savefig('Figure_3.pdf', format='pdf')
 
 # FIGURE 4: comparing PBS-Tumor from this work and Johnson (2011)
-nrows = 2
-ncols = 2
-fig, axs = plt.subplots(nrows, ncols, sharex='all', figsize=[1*6.4, 1.2*4.8], constrained_layout=True)
-row = col = 0
-for obs_name in obs_names:
-    axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
-    for sim_id in ['A', 'B']:
-        # plot simulation data
-        sim_time = [d['xval'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
-                                   color=colors[sim_id])
-        # plot experimental data, if it exists
-        expt_xvals = [d['xval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-        if len(expt_xvals) > 0:
-            yvals = [d['yval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
-    if row == nrows - 1:
-        axs[row, col].set_xlabel('Time (day)', fontsize=14)
-    ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
-    axs[row, col].set_ylabel(ylabel, fontsize=14)
-    axs[row, col].set_xlim(right=30)
-    axs[row, col].set_xticks([0, 7, 14, 21, 28], [0, 7, 14, 21, 28])
-    axs[row, col].tick_params(axis='both', which='major', labelsize=14)
-    # update row and col
-    col += 1
-    if col == ncols:
-        col = 0
-        row += 1
-# put the legend at the bottom of the figure
-handles, labels = axs[0, 0].get_legend_handles_labels()
-fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12, columnspacing=1)
-left = 0
-bottom = 0.08
-fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
-plt.savefig('Figure_4.pdf', format='pdf')
+def make_sim_fig(sim_ids, fig_name):
+    nrows = 2
+    ncols = 2
+    fig, axs = plt.subplots(nrows, ncols, sharex='all', figsize=[1*6.4, 1.2*4.8], constrained_layout=True)
+    row = col = 0
+    for obs_name in obs_names:
+        axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
+        for sim_id in sim_ids:
+            # plot simulation data
+            sim_time = [d['time'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
+            axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
+                                       color=colors[sim_id])
+            # plot experimental data, if it exists
+            expt_xvals = [d['time'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+            if len(expt_xvals) > 0:
+                yvals = [d['average'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+                stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
+                axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
+        if row == nrows - 1:
+            axs[row, col].set_xlabel('Time (day)', fontsize=14)
+        ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
+        axs[row, col].set_ylabel(ylabel, fontsize=14)
+        axs[row, col].set_xlim(right=30)
+        axs[row, col].set_xticks([0, 7, 14, 21, 28], [0, 7, 14, 21, 28])
+        axs[row, col].tick_params(axis='both', which='major', labelsize=14)
+        # update row and col
+        col += 1
+        if col == ncols:
+            col = 0
+            row += 1
+    # put the legend at the bottom of the figure
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12, columnspacing=1)
+    left = 0
+    bottom = 0.08
+    fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
+    plt.savefig(fig_name, format='pdf')
 
-# FIGURE 5: comparing PBS-Tumor and ZA-Tumor from this work
-nrows = 2
-ncols = 2
-fig, axs = plt.subplots(nrows, ncols, sharex='all', figsize=[1*6.4, 1.2*4.8], constrained_layout=True)
-row = col = 0
-for obs_name in obs_names:
-    axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
-    for sim_id in ['A', '4']:
-        # plot simulation data
-        sim_time = [d['xval'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_min = [d['yval_min'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        yvals_max = [d['yval_max'] for d in sim_data if d['observable'] == obs_name and d['sim_id'] == sim_id]
-        axs[row, col].fill_between(sim_time, yvals_min, yvals_max, alpha=0.25, label=legend_labels[sim_id],
-                                   color=colors[sim_id])
-        # plot experimental data, if it exists
-        expt_xvals = [d['xval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-        if len(expt_xvals) > 0:
-            avg = [d['yval'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            stderr = [d['stderr'] for d in expt_data if d['observable'] == obs_name and d['expt_id'] == sim_id]
-            axs[row, col].errorbar(expt_xvals, yvals, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_id])
-    if row == nrows - 1:
-        axs[row, col].set_xlabel('Time (day)', fontsize=14)
-    ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
-    axs[row, col].set_ylabel(ylabel, fontsize=14)
-    axs[row, col].set_xlim(right=22)
-    axs[row, col].set_xticks([0, 7, 14, 21], [0, 7, 14, 21])
-    axs[row, col].tick_params(axis='both', which='major', labelsize=14)
-    # update row and col
-    col += 1
-    if col == ncols:
-        col = 0
-        row += 1
-# put the legend at the bottom of the figure
-handles, labels = axs[0, 0].get_legend_handles_labels()
-fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.04), loc='center', fontsize=12, columnspacing=1)
-left = 0
-bottom = 0.08
-fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
-plt.savefig('Figure_5.pdf', format='pdf')
+make_sim_fig(['A', 'B'], 'Figure_4.pdf')
+make_sim_fig(['A', '4'], 'Figure_5.pdf')
+make_sim_fig(['C', '4'], 'Figure_ZA.pdf')
+make_sim_fig(['B', 'C'], 'Figure_B_C.pdf')
 
 plt.show()

@@ -18,14 +18,15 @@ class SimulationProtocol(object):
         self.t_equil = t_equil
 
     # default simulation protocol (can be overwritten)
-    def run(self, xvals, param_values):
+    def run(self, tspan, param_values):
+        # TODO: What if 'tspan' isn't sorted in numerical order?
         if self.t_equil is not None:
-            out = self.solver.run(tspan=np.linspace(-self.t_equil + xvals[0], xvals[0], 2),
+            out = self.solver.run(tspan=np.linspace(-self.t_equil + tspan[0], tspan[0], 2),
                                   param_values=param_values)
             initials = out.species[-1]
         else:
             initials = None
-        output = self.solver.run(tspan=xvals, param_values=param_values, initials=initials).all
+        output = self.solver.run(tspan=tspan, param_values=param_values, initials=initials).all
         return output
 
 
@@ -41,25 +42,26 @@ class ParameterCalibration(object):
         # read in experimental data
         self.raw_data = np.genfromtxt(exp_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
 
-        # determine how many experiments there are and what the x-values and observables are for each
+        # determine how many experiments there are and what the time points and observables are for each
         self.experiments = np.unique([d['expt_id'] for d in self.raw_data])
         self.n_experiments = len(self.experiments)
         self.observables = [np.unique([d['observable'] for d in self.raw_data if d['expt_id'] == expt])
                             for expt in self.experiments]
-        self.xdata = [np.unique([d['xval'] for d in self.raw_data if d['expt_id'] == expt])
-                      for expt in self.experiments]
+        # NOTE: The time points are extracted in the order they are given in the data file. It's the responsibility of
+        # the SimulationProtocol object to account for the possibility that the data points are included out of order.
+        self.tdata = [[d['time'] for d in self.raw_data if d['expt_id'] == expt] for expt in self.experiments]
 
         # for a given experiment, there may be missing data points, so create masks that indicate for each observable in
-        # each experiment which x-values we have data for
-        self.xvals_masks = []
-        for expt, obs, xvals in zip(self.experiments, self.observables, self.xdata):
-            self.xvals_masks.append({})
+        # each experiment which time points we have data for
+        self.tspan_masks = []
+        for expt, obs, tspan in zip(self.experiments, self.observables, self.tdata):
+            self.tspan_masks.append({})
             for name in obs:
-                self.xvals_masks[-1][name] = [False] * len(xvals)
-                xdata = [d['xval'] for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
-                for i in range(len(xvals)):
-                    if xvals[i] in xdata:
-                        self.xvals_masks[-1][name][i] = True
+                self.tspan_masks[-1][name] = [False] * len(tspan)
+                tdata = [d['time'] for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
+                for i in range(len(tspan)):
+                    if tspan[i] in tdata:
+                        self.tspan_masks[-1][name][i] = True
 
         # create the list of parameters to be sampled and save their indices
         priors = {} if priors is None else priors
@@ -91,17 +93,17 @@ class ParameterCalibration(object):
 
         # create normal distributions around each data point to use in the likelihood function
         self.like_data = []
-        for expt, obs, xvals in zip(self.experiments, self.observables, self.xdata):
+        for expt, obs, tspan in zip(self.experiments, self.observables, self.tdata):
             self.like_data.append({})
             for name in obs:
                 data = [d for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
-                yvals = []
+                avg = []
                 se = []
-                for xval in xvals:  # add data in same order as the x-values
-                    if xval in [d['xval'] for d in data]:
-                        yvals.append([d['yval'] for d in data if d['xval'] == xval][0])
-                        se.append([d['stderr'] for d in data if d['xval'] == xval][0])
-                self.like_data[-1][name] = norm(loc=yvals, scale=se)
+                for t in tspan:  # add data in same order as the time points in tspan
+                    if t in [d['time'] for d in data]:
+                        avg.append([d['average'] for d in data if d['time'] == t][0])
+                        se.append([d['stderr'] for d in data if d['time'] == t][0])
+                self.like_data[-1][name] = norm(loc=avg, scale=se)
 
         # store the full set of parameter values
         self.param_values = np.array([p.value for p in self.model.parameters])
@@ -118,12 +120,12 @@ class ParameterCalibration(object):
             self.logp_data[n] = 0.  # reinitialize this to zero
             self.param_values[self.parameter_idxs] = 10 ** y[self.samples_idxs[n]]
             # run simulation
-            output = self.sim_protocols[n].run(self.xdata[n], self.param_values)
+            output = self.sim_protocols[n].run(self.tdata[n], self.param_values)
             # calculate log-likelihood
             for obs in self.like_data[n].keys():
                 if np.any(np.isnan(output[obs])):  # return -inf if simulation returns NaNs
                     return -np.inf
-                self.logp_data[n] += np.sum(self.like_data[n][obs].logpdf(output[obs][self.xvals_masks[n][obs]]))
+                self.logp_data[n] += np.sum(self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]]))
             if np.isnan(self.logp_data[n]):  # return -inf if logp is NaN
                 return -np.inf
         return sum(self.logp_data)
@@ -211,7 +213,7 @@ class ParameterCalibration(object):
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
         _plot_pd_args = {'labels': None, 'groups': None, 'save_plot': None, 'sharex': 'all', 'sharey': 'none'}
-        _plot_tc_args = {'xvals': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
+        _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
         if plot_ll_args is not None:
             _plot_ll_args.update(plot_ll_args)
         if plot_pd_args is not None:
@@ -264,33 +266,34 @@ class ParameterCalibration(object):
             param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
 
         if which_plots > 2:
-            print('Plotting simulation results') # TODO
-            # get the x-value units for the x-label
-            x_units = np.unique([d['x_units'] for d in self.raw_data])
-            if len(x_units) > 1:
-                print("WARNING: Multiple x-value units included in the data file. Using default 'x' for xlabel.")
-            xlabel = 'x (%s)' % x_units[0] if len(x_units) == 1 else 'x'
+            print('Plotting time courses')
+            # get the time units for the x-label
+            time_units = np.unique([d['time_units'] for d in self.raw_data])
+            if len(time_units) > 1:
+                print("WARNING: Multiple time units included in the data file. Using default 'time' for xlabel.")
+            xlabel = 'time (%s)' % time_units[0] if len(time_units) == 1 else 'time'
             # get the amount units for the y-labels, which can be different for different observables
             ylabels = []
             for n in range(self.n_experiments):
                 ylabels.append([])
                 for obs in self.observables[n]:
-                    y_units = np.unique([d['y_units'] for d in self.raw_data if d['observable'] == obs
+                    amount_units = np.unique([d['amount_units'] for d in self.raw_data if d['observable'] == obs
                                               and d['expt_id'] == self.experiments[n]])
-                    if len(y_units) > 1:
-                        print("WARNING: Multiple y-value units included in the data file for observable %s (expt id %s)."
-                              " Using default 'y' for ylabel.")
-                    ylabel = 'y (%s)' % y_units[0] if len(y_units) == 1 else 'y'
+                    if len(amount_units) > 1:
+                        print("WARNING: Multiple amount units included in the data file for observable %s (expt id %s)."
+                              " Using default 'amount' for ylabel.")
+                    ylabel = 'amount (%s)' % amount_units[0] if len(amount_units) == 1 else 'amount'
                     ylabels[-1].append(ylabel)
             # create observable legend labels
             leg_labels = [[obs_name for obs_name in self.observables[n]] for n in range(self.n_experiments)] \
                 if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name in self.observables[n]]
                                             for n in range(self.n_experiments)]
-            # increase the number of y-values  for the simulations by a factor of 10
-            xvals = _plot_tc_args.pop('xvals')  # pop xvals out of the dict since it's not passed as a kwarg below
-            if xvals is None:
-                xvals = [np.linspace(
-                    self.xdata[n][0], self.xdata[n][-1], int((self.xdata[n][-1] - self.xdata[n][0]) * 10 + 1))
+            # increase the number of time points for the simulations by a factor of 10
+            tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dict since it's not passed as a kwarg below
+            if tspans is None:
+                tspans = [np.linspace(
+                    self.tdata[n][0], self.tdata[n][-1],
+                    int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
                     for n in range(self.n_experiments)]
             # make the plots
             if _plot_tc_args['xlabel'] is None:
@@ -301,7 +304,7 @@ class ParameterCalibration(object):
                 _plot_tc_args['leg_labels'] = leg_labels
             # pop separate_plots out of the dict since it's not passed as a kwarg below
             separate_plots = _plot_tc_args.pop('separate_plots')
-            self.plot_timecourses(self.model, xvals, self.sim_protocols, param_samples, self.parameter_idxs,
+            self.plot_timecourses(self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs,
                                   exp_data=self.raw_data, samples_idxs=self.samples_idxs,
                                   separate_plots=separate_plots, **_plot_tc_args)
 
@@ -495,15 +498,15 @@ class ParameterCalibration(object):
 
 
     @staticmethod
-    def plot_timecourses(model, xvals, sim_protocols, param_samples, parameter_idxs, observables=None, exp_data=None,
+    def plot_timecourses(model, tspans, sim_protocols, param_samples, parameter_idxs, observables=None, exp_data=None,
                          samples_idxs=None, show_plot=False, save_plot=True, separate_plots=True, **kwargs):
 
         # if there's only one simulation to run, put the following objects inside a list of size 1, since the code
         # is set up to loop over the number of simulations
-        # NOTE: checking first elements of 'xvals', 'observables', and 'samples_idxs' because they could be jagged, in
+        # NOTE: checking first elements of 'tspans', 'observables', and 'samples_idxs' because they could be jagged, in
         # which case calling 'np.array' would raise an error
-        if len(np.array(xvals[0]).shape) == 0:
-            xvals = [xvals]
+        if len(np.array(tspans[0]).shape) == 0:
+            tspans = [tspans]
         if len(np.array(sim_protocols).shape) == 0:
             sim_protocols = [sim_protocols]
         if observables is not None and len(np.array(observables[0]).shape) == 0:
@@ -526,16 +529,16 @@ class ParameterCalibration(object):
 
         # if sample indices are not provided, all parameters are used in all simulations
         if samples_idxs is None:
-            samples_idxs = [[i for i in range(len(parameter_idxs))] for sim in range(len(xvals))]
+            samples_idxs = [[i for i in range(len(parameter_idxs))] for sim in range(len(tspans))]
 
         # error check
-        if len(np.unique([len(xvals), len(sim_protocols), len(observables), len(samples_idxs)])) != 1:
+        if len(np.unique([len(tspans), len(sim_protocols), len(observables), len(samples_idxs)])) != 1:
             raise Exception(
-                "The following arrays must all be equal length: 'xvals', 'sim_protocols', 'observables', "
+                "The following arrays must all be equal length: 'tspans', 'sim_protocols', 'observables', "
                 "'samples_idxs")
 
         # number of simulations
-        n_sims = len(xvals)
+        n_sims = len(tspans)
 
         # flatten the observables matrix and pull out the unique names so we can loop over them later
         obs_names = np.unique(np.concatenate([obs for obs in observables]))
@@ -551,8 +554,8 @@ class ParameterCalibration(object):
                             np.array([[cycle[j % 10] for j in range(n_sims)] for name in obs_names]).T)
 
         locs = kwargs.get('locs', [[0] * len(observables[n]) for n in range(n_sims)])
-        xlabel = kwargs.get('xlabel', 'x')
-        ylabels = kwargs.get('ylabels', [['y'] * len(observables[n]) for n in range(n_sims)])
+        xlabel = kwargs.get('xlabel', 'time')
+        ylabels = kwargs.get('ylabels', [['amount'] * len(observables[n]) for n in range(n_sims)])
         leg_labels = kwargs.get('leg_labels', [[obs_name for obs_name in observables[n]] for n in range(n_sims)])
         save_sim_data = kwargs.get('save_sim_data', False)
         # make sure arrays are 2D
@@ -571,14 +574,14 @@ class ParameterCalibration(object):
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
         # FOR DEBUGGING ###
-        # samples_unique = samples_unique[:10]
-        # counts = counts[:10]
+        samples_unique = samples_unique[:10]
+        counts = counts[:10]
         # #################
         # save simulation data, if requested
         if save_sim_data:
             csvfile = open("SIM_DATA.csv", 'w')
             csvwriter = csv.writer(csvfile, delimiter=',')
-            csvwriter.writerow(['observable', 'xval', 'yval_min', 'yval_max', 'sim_id'])
+            csvwriter.writerow(['observable', 'time', 'yval_min', 'yval_max', 'sim_id'])
         # loop over simulations (experiments + perturbations)
         print('Running %d simulations (of %d samples)' % (len(samples_unique), len(param_samples)))
         for n in range(n_sims):
@@ -591,7 +594,7 @@ class ParameterCalibration(object):
             for i, sample in enumerate(samples_unique):
                 print(i, end=' ')
                 param_values[parameter_idxs] = 10 ** sample[samples_idxs[n]]
-                outputs.append(sim_protocols[n].run(xvals[n], param_values))
+                outputs.append(sim_protocols[n].run(tspans[n], param_values))
                 if (i + 1) % 20 == 0:
                     print()
             print('DONE')
@@ -613,29 +616,29 @@ class ParameterCalibration(object):
                 yvals = np.array([output[obs_name] for output in outputs])
                 yvals_min = np.percentile(yvals, fill_between[0], axis=0)
                 yvals_max = np.percentile(yvals, fill_between[1], axis=0)
-                plt.fill_between(xvals[n], yvals_min, yvals_max, alpha=0.25, color=colors[n][i],
+                plt.fill_between(tspans[n], yvals_min, yvals_max, alpha=0.25, color=colors[n][i],
                                  label=leg_labels[n][i])
                 # save simulation data, if requested
                 if save_sim_data:
                     sim_id = experiments[n] if n < n_experiments else n
-                    for line in zip(xvals[n], yvals_min, yvals_max):
+                    for line in zip(tspans[n], yvals_min, yvals_max):
                         csvwriter.writerow([obs_name] + list(line) + [sim_id])
                 print('DONE')
                 # plot experimental data
                 if n < n_experiments:
-                    xplot = [d['xval'] for d in raw_data if d['observable'] == obs_name
+                    time = [d['time'] for d in raw_data if d['observable'] == obs_name
                             and d['expt_id'] == experiments[n]]
-                    yplot = [d['yval'] for d in raw_data if d['observable'] == obs_name
+                    avg = [d['average'] for d in raw_data if d['observable'] == obs_name
                            and d['expt_id'] == experiments[n]]
                     stderr = [d['stderr'] for d in raw_data if d['observable'] == obs_name
                               and d['expt_id'] == experiments[n]]
                     label = 'experiment' if n_experiments == 1 else 'experiment %s' % str(experiments[n])
-                    plt.errorbar(xplot, yplot, yerr=stderr, capsize=6, fmt='o', ms=8, mfc=colors[n][i],
-                                 mec=colors[n][i], ecolor=colors[n][i], label=label)
+                    plt.errorbar(time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, mfc=colors[n][i], mec=colors[n][i],
+                                 ecolor=colors[n][i], label=label)
                     # To avoid confusion, only print the following message if there is actual expt data
                     # NOTE: to get the correct legend labels, we still need to make the errorbar plot above, even if
                     # there is no expt data
-                    if len(xplot) > 0:
+                    if len(time) > 0:
                         print('   Experimental data...DONE')
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabels[n][i])
