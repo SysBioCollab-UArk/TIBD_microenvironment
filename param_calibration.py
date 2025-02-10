@@ -419,6 +419,7 @@ class ParameterCalibration(object):
             groups = [[i for i in range(len(samples[0]))]]
         if labels is None:
             labels = [['p_%d_%d' % (i, j) for j in range(len(groups[i]))] for i in range(len(groups))]
+        fig_axs_list = []
         for n, label, group in zip(range(len(labels)), labels, groups):
             ndims = len(group)  # number of dimensions (i.e., parameters)
             # set plot parameters
@@ -434,6 +435,10 @@ class ParameterCalibration(object):
             colors = sns.color_palette(n_colors=ndims)
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
+            if nrows == 1 and ncols == 1:
+                axs = np.array([axs])  # make it an np.ndarray
+            # save the fig and axes for later
+            fig_axs_list.append((fig, axs.flatten()))
             ##### TODO
             # fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex='none', sharey=sharey, constrained_layout=True,
             #                           figsize=figsize)
@@ -476,8 +481,24 @@ class ParameterCalibration(object):
                     # fig2.delaxes(axs[row][col])
                     #####
                     col += 1
-            # save plots
-            if save_plot is not False:
+
+        # Determine common x-limits for all figures, if requested (only applicable if there are multiple param groups)
+        if len(fig_axs_list) > 1 and kwargs.get('sharex', 'all') == 'all':
+            # Extract x-limits across all subplots
+            x_min = np.inf
+            x_max = -np.inf
+            for fig, axs in fig_axs_list:
+                for ax in axs:
+                    x_min = min(x_min, ax.get_xlim()[0])
+                    x_max = max(x_max, ax.get_xlim()[1])
+            # Apply the common x-limits to all figures
+            for fig, axs in fig_axs_list:
+                for ax in axs:
+                    ax.set_xlim(x_min, x_max)
+
+        # save plots
+        if save_plot is not False:
+            for n, (fig, axs) in enumerate(fig_axs_list):
                 if save_plot is True:
                     filename = 'fig_PyDREAM_histograms'
                     suffix = '' if len(groups) == 1 else '_group_%d' % n
