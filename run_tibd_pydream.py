@@ -2,16 +2,26 @@ from MODELS.TIBD_PopD_v1 import model
 from MODULES.perturbations import add_bisphosphonate_components
 from param_calibration import *
 from pysb.simulator import ScipyOdeSimulator
-from SIM_PROTOCOLS.sim_protocols import SequentialInjections
+from SIM_PROTOCOLS.sim_protocols import *
 
 add_bisphosphonate_components()
 
 solver = ScipyOdeSimulator(model)
 
+# Experiment A
 tumor_injection = SequentialInjections(solver, t_equil=500, perturb_time_amount={'Tumor()': (0, 1)})
+
+# Experiment B
+# tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
+#                                                perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+perturb_time_amount = [{'Tumor()': (0, 1)}, {'Tumor()': (0, 1), 'Bisphos()': (6, 1)}]
+scale_by_idx = {'Tumor_tot': 3}  # [0, 6, 7, 14, 21, 28, 0, 6, 7, 14, 21, 28], t=14 in expt 1 is idx 3
+multi_exp_injection = ParallelExperiments(solver, t_equil=500, perturb_time_amount=perturb_time_amount,
+                                          scale_by_idx=scale_by_idx)
+
+# Experiment C
 bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_time_amount={'Bisphos()': (6, 1)})
-tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
-                                               perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
+
 
 custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
 no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC',
@@ -21,18 +31,19 @@ obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'ost
 
 exp_data_file = os.path.join('DATA', 'TIBD_PopD_Data.csv')
 
-param_expts_map = {'k_tumor_div_basal': [['A'], ['B', 'C', 'D']],
-                   'k_tumor_dth': [['A'], ['B', 'C', 'D']],
-                   'k_tumor_div_TGFb': [['A'], ['B', 'C', 'D']],
-                   'k_tumor_PTHrP': [['A'], ['B', 'C', 'D']],
-                   'k_tumor_OB': [['A'], ['B', 'C', 'D']],
-                   'k_tumor_OC': [['A'], ['B', 'C', 'D']]}
+param_expts_map = {'k_tumor_div_basal': [['A'], ['B', 'C']],  #, 'D']],
+                   'k_tumor_dth': [['A'], ['B', 'C']],  #, 'D']],
+                   'k_tumor_div_TGFb': [['A'], ['B', 'C']],  #, 'D']],
+                   'k_tumor_PTHrP': [['A'], ['B', 'C']],  #, 'D']],
+                   'k_tumor_OB': [['A'], ['B', 'C']],  #, 'D']],
+                   'k_tumor_OC': [['A'], ['B', 'C']]}  #, 'D']]}
 
 if __name__ == '__main__':
 
     calibrator = ParameterCalibration(model,
                                       exp_data_file,
-                                      [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection],
+                                      # [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection],
+                                      [tumor_injection, multi_exp_injection, bisphos_injection],
                                       priors=custom_priors,
                                       no_sample=no_sample,
                                       param_expts_map=param_expts_map)
