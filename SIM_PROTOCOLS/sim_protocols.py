@@ -65,15 +65,91 @@ class SequentialInjections(SimulationProtocol):
 
         return output
 
+class ParallelExperiments(SimulationProtocol):
+    # noinspection PyMissingConstructor
+    def __init__(self, solver, t_equil=None, perturb_time_amount=None, scale_by_idx=None):
+        # if only one dict is passed, make it a list
+        if len(np.array(perturb_time_amount).shape) == 0:
+            perturb_time_amount = [perturb_time_amount]
+        # create SequentialInjections objects to run simulations
+        self.sim_protocols = []
+        for pta in perturb_time_amount:
+            self.sim_protocols.append(SequentialInjections(solver, t_equil, pta))
+        # dict with observables as keys and indices of data points to scale by as values
+        self.scale_by_idx = {} if scale_by_idx is None else scale_by_idx
+
+    def run(self, tspan, param_values):
+        # run simulations
+        output = []
+        for protocol in self.sim_protocols:
+            output.append(protocol.run(tspan=tspan, param_values=param_values))
+        # concatenate output arrays
+        output = np.concatenate(output)
+        # scale output arrays
+        for obs in self.scale_by_idx.keys():
+            output[obs] /= output[obs][self.scale_by_idx[obs]]
+
+        return output
+
 
 if __name__ == "__main__":
-    from pysb.simulator import ScipyOdeSimulator
     from MODELS.TIBD_PopD_v1 import model
+    from MODULES.perturbations import add_bisphosphonate_components
+    from pysb.simulator import ScipyOdeSimulator
+    import os
+    import matplotlib.pyplot as plt
+
+    # read in experimental data
+    datafile = os.path.join('..', 'DATA', 'TIBD_PopD_Data.csv')
+    data = np.genfromtxt(datafile, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
+    print(data.dtype.names)
+
+    observables = np.unique([d['observable'] for d in data if d['expt_id'] == 'B'])
+    for obs in observables:
+        plt.figure(obs, constrained_layout=True)
+        expts = np.unique([d['alt_expt_id'] for d in data if d['observable'] == obs and d['expt_id'] == 'B'])
+        for expt in expts:
+            xvals = [d['time'] for d in data if d['observable'] == obs and d['alt_expt_id'] == expt]
+            yvals = [d['average'] for d in data if d['observable'] == obs and d['alt_expt_id'] == expt]
+            stderr = [d['stderr'] for d in data if d['observable'] == obs and d['alt_expt_id'] == expt]
+            plt.errorbar(xvals, yvals, yerr=stderr, fmt='o', ms=8, capsize=6, label=expt)
+        time_units = np.unique([d['time_units'] for d in data if d['observable'] == obs])
+        amount_units = np.unique([d['amount_units'] for d in data if d['observable'] == obs])
+        plt.xlabel('time (%s)' % time_units[0])
+        plt.ylabel('%s (%s)' % (obs, amount_units[0]))
+        plt.legend(loc='best')
+
+    # plt.show()
+    # quit()
+
+    # run simulations
+    add_bisphosphonate_components()
 
     sim = ScipyOdeSimulator(model)
-    protocol = SequentialInjections(sim, t_equil=500, perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
-    result = protocol.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
 
-    print(result)
-    print(result.shape)
-    print(result.dtype.names)
+    # Experiment A
+    # tumor_injection = SequentialInjections(sim, t_equil=500, perturb_time_amount={'Tumor()': (0, 1)})
+
+    # Experiment B
+    perturb_time_amount = [{'Tumor()': (0, 1)}, {'Tumor()': (0, 1), 'Bisphos()': (6, 1)}]
+    scale_by_idx = {'Tumor_tot': 3}  # [0, 6, 7, 14, 21, 28, 0, 6, 7, 14, 21, 28], t=14 in expt 1 is idx 3
+    multi_exp_injection = ParallelExperiments(sim, t_equil=500, perturb_time_amount=perturb_time_amount,
+                                              scale_by_idx=scale_by_idx)
+
+    result = multi_exp_injection.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
+
+    # Experiment C
+    # bisphos_injection = SequentialInjections(sim, t_equil=500, perturb_time_amount={'Bisphos()': (6, 1)})
+
+    tspan_mask = {
+        'Bone_tot': [[True, False, True, True, True, True], [True, True, True, True, True, True]],
+        'Tumor_tot': [[False, False, False, True, True, True], [False, False, False, True, True, True]],
+    }
+    tspan = np.array([0, 6, 7, 14, 21, 28])
+    for obs in observables:
+        plt.figure(obs)
+        colors = [line.get_color() for i, line in enumerate(plt.gca().get_lines()) if i % 3 == 0]
+        for i, yvals in enumerate(result[obs].reshape(len(tspan_mask[obs]), -1)):
+            plt.plot(tspan[tspan_mask[obs][i]], yvals[tspan_mask[obs][i]], lw=2, color=colors[i])
+
+    plt.show()
