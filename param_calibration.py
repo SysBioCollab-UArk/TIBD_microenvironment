@@ -19,7 +19,6 @@ class SimulationProtocol(object):
 
     # default simulation protocol (can be overwritten)
     def run(self, tspan, param_values):
-        # TODO: What if 'tspan' isn't sorted in numerical order?
         if self.t_equil is not None:
             out = self.solver.run(tspan=np.linspace(-self.t_equil + tspan[0], tspan[0], 2),
                                   param_values=param_values)
@@ -47,9 +46,18 @@ class ParameterCalibration(object):
         self.n_experiments = len(self.experiments)
         self.observables = [np.unique([d['observable'] for d in self.raw_data if d['expt_id'] == expt])
                             for expt in self.experiments]
-        # NOTE: The time points are extracted in the order they are given in the data file. It's the responsibility of
-        # the SimulationProtocol object to account for the possibility that the data points are included out of order.
-        self.tdata = [[d['time'] for d in self.raw_data if d['expt_id'] == expt] for expt in self.experiments]
+        # all time points are extracted for all observables in each experiment
+        self.tdata = [list(np.unique([d['time'] for d in self.raw_data if d['expt_id'] == expt]))
+                      for expt in self.experiments]
+        # get alternative experiment IDs for all experiments (allows multiple experiments to be merged under one ID)
+        alt_experiments = dict(
+            zip(
+                self.experiments,
+                [[expt] for expt in self.experiments] if 'alt_expt_id' not in self.raw_data.dtype.names else
+                [list(np.unique([d['alt_expt_id'] for d in self.raw_data if d['expt_id'] == expt]))
+                 for expt in self.experiments]
+            )
+        )
 
         # for a given experiment, there may be missing data points, so create masks that indicate for each observable in
         # each experiment which time points we have data for
@@ -57,11 +65,14 @@ class ParameterCalibration(object):
         for expt, obs, tspan in zip(self.experiments, self.observables, self.tdata):
             self.tspan_masks.append({})
             for name in obs:
-                self.tspan_masks[-1][name] = [False] * len(tspan)
-                tdata = [d['time'] for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
+                # create 2D masks for each observable for each experiment based on the alt_expt IDs
+                self.tspan_masks[-1][name] = [[False for t in tspan] for x in alt_experiments[expt]]
+                tdata = [[d['time'] for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt and
+                         d['alt_expt_id'] == alt_expt] for alt_expt in alt_experiments[expt]]
                 for i in range(len(tspan)):
-                    if tspan[i] in tdata:
-                        self.tspan_masks[-1][name][i] = True
+                    for j in range(len(tdata)):
+                        if tspan[i] in tdata[j]:
+                            self.tspan_masks[-1][name][j][i] = True
 
         # create the list of parameters to be sampled and save their indices
         priors = {} if priors is None else priors
@@ -93,17 +104,27 @@ class ParameterCalibration(object):
 
         # create normal distributions around each data point to use in the likelihood function
         self.like_data = []
-        for expt, obs, tspan in zip(self.experiments, self.observables, self.tdata):
+        for n, (expt, obs, tspan) in enumerate(zip(self.experiments, self.observables, self.tdata)):
+            # print(expt, obs, tspan)
             self.like_data.append({})
             for name in obs:
                 data = [d for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
+                tdata = [d['time'] for d in data]
+                n_data_pts = [len([m for m in mask if m is True]) for mask in self.tspan_masks[n][name]]
                 avg = []
                 se = []
-                for t in tspan:  # add data in same order as the time points in tspan
-                    if t in [d['time'] for d in data]:
-                        avg.append([d['average'] for d in data if d['time'] == t][0])
-                        se.append([d['stderr'] for d in data if d['time'] == t][0])
+                start = 0
+                for n_pts in n_data_pts:
+                    for t in tspan:  # add data in same order as the time points in tspan
+                        if t in tdata[start: start + n_pts]:
+                            avg.append([d['average'] for d in data[start: start + n_pts] if d['time'] == t][0])
+                            se.append([d['stderr'] for d in data[start: start + n_pts] if d['time'] == t][0])
+                    start += n_pts
                 self.like_data[-1][name] = norm(loc=avg, scale=se)
+                # now flatten the tspan_mask, so nothing will change for the simple case of one alt_expt_id per expt_id
+                self.tspan_masks[n][name] = np.array(self.tspan_masks[n][name]).flatten()
+        #         print('  ', name, self.tspan_masks[n][name])
+        # quit()
 
         # store the full set of parameter values
         self.param_values = np.array([p.value for p in self.model.parameters])
