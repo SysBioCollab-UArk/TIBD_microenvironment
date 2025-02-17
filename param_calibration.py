@@ -49,11 +49,19 @@ class ParameterCalibration(object):
         # all time points are extracted for all observables in each experiment
         self.tdata = [list(np.unique([d['time'] for d in self.raw_data if d['expt_id'] == expt]))
                       for expt in self.experiments]
+        # If the 'alt_expt_id' column doesn't exist, create a new array and add it with values equal to 'expt_id'
+        if 'alt_expt_id' not in self.raw_data.dtype.names:
+            expt_id_dtype = self.raw_data.dtype['expt_id']
+            new_dtype = np.dtype(self.raw_data.dtype.descr + [('alt_expt_id', expt_id_dtype)])
+            new_data = np.zeros(self.raw_data.shape, dtype=new_dtype)
+            for col in self.raw_data.dtype.names:
+                new_data[col] = self.raw_data[col]
+            new_data['alt_expt_id'] = self.raw_data['expt_id']
+            self.raw_data = new_data
         # get alternative experiment IDs for all experiments (allows multiple experiments to be merged under one ID)
         alt_experiments = dict(
             zip(
                 self.experiments,
-                [[expt] for expt in self.experiments] if 'alt_expt_id' not in self.raw_data.dtype.names else
                 [list(np.unique([d['alt_expt_id'] for d in self.raw_data if d['expt_id'] == expt]))
                  for expt in self.experiments]
             )
