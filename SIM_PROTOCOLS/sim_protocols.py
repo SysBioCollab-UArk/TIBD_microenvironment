@@ -32,8 +32,15 @@ class SequentialInjections(SimulationProtocol):
     def __init__(self, solver, t_equil=None, perturb_time_value=None):
         super().__init__(solver, t_equil)
         self.perturb_time_value = perturb_time_value
+        self.perturb_idx = None
         if self.perturb_time_value is not None:
             self.perturb_time_value = validate_SeqInj_input(self.perturb_time_value)
+            # create a dictionary to store the indices of all perturbations (initials or param_values)
+            perturbs = np.unique([pta[0] for pta in self.perturb_time_value])
+            self.perturb_idx = dict(zip(perturbs, [None for p in perturbs]))
+        # store the species and parameter names, so don't have to keep generating these lists over and over
+        self.sp_names = [str(sp) for sp in self.solver.model.species]
+        self.par_names = [p.name for p in self.solver.model.parameters]
 
     def run(self, tspan, param_values):
 
@@ -84,16 +91,16 @@ class SequentialInjections(SimulationProtocol):
             # save the perturbation time for the next iteration
             pert_time_last = pert_time
             # add perturbation to initials or param_values for next iteration
-            sp_names = [str(sp) for sp in self.solver.model.species]
-            par_names = [p.name for p in self.solver.model.parameters]
-            if perturb in sp_names:
-                idx_perturb = sp_names.index(perturb)  # TODO: speed up by saving this index
-                initials[idx_perturb] = pert_value
-            elif perturb in par_names:
-                idx_perturb = par_names.index(perturb)  # TODO: speed up by saving this index
-                param_values[idx_perturb] = pert_value
+            if perturb in self.sp_names:
+                if self.perturb_idx[perturb] is None:
+                    self.perturb_idx[perturb] = self.sp_names.index(perturb)
+                initials[self.perturb_idx[perturb]] = pert_value
+            elif perturb in self.par_names:
+                if self.perturb_idx[perturb] is None:
+                    self.perturb_idx[perturb] = self.par_names.index(perturb)
+                param_values[self.perturb_idx[perturb]] = pert_value
             else:
-                raise Exception("Perturbation '%s' not found in either model.species or model.parameters.")
+                raise Exception("Perturbation '%s' not found in either model.species or model.parameters." % perturb)
         # final perturbation
         tspan_i = [pert_time_last] + [t for t in tspan if t > pert_time_last]
         sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
