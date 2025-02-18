@@ -3,19 +3,19 @@ import numpy as np
 
 
 class SequentialInjections(SimulationProtocol):
-    def __init__(self, solver, t_equil=None, perturb_time_amount=None):
+    def __init__(self, solver, t_equil=None, perturb_time_value=None):
         super().__init__(solver, t_equil)
-        self.perturb_time_amount = perturb_time_amount
+        self.perturb_time_value = perturb_time_value
 
     def run(self, tspan, param_values):
-        if self.perturb_time_amount is None:  # just do the default simulation protocol
+        if self.perturb_time_value is None:  # just do the default simulation protocol
             output = super().run(tspan, param_values)
-        elif isinstance(self.perturb_time_amount, dict):
+        elif isinstance(self.perturb_time_value, dict):
             # Get the sorted perturbation times here, in case any are < tspan[0]
-            sorted_pta_by_time = sorted(list(self.perturb_time_amount.items()), key=lambda x: x[1][0])
+            sorted_ptv_by_time = sorted(list(self.perturb_time_value.items()), key=lambda x: x[1][0])
             # equilibration
             if self.t_equil is not None:
-                min_tsim = min(sorted_pta_by_time[0][1][0], tspan[0])  # min of perturb time and tspan[0]
+                min_tsim = min(sorted_ptv_by_time[0][1][0], tspan[0])  # min of perturb time and tspan[0]
                 out = self.solver.run(tspan=np.linspace(-self.t_equil + min_tsim, min_tsim, 2),
                                       param_values=param_values)
                 initials = out.species[-1]
@@ -27,16 +27,17 @@ class SequentialInjections(SimulationProtocol):
                 initials = self.solver.initials[0]
             # sort drug treatments by time of application and loop over them
             output = None
-            for i, pta in enumerate(sorted_pta_by_time):
-                perturb = pta[0]
-                time = pta[1][0]
-                amount = pta[1][1]
+            pert_time_last = np.inf
+            for i, ptv in enumerate(sorted_ptv_by_time):
+                perturb = ptv[0]
+                pert_time = ptv[1][0]
+                pert_value = ptv[1][1]
                 # if time <= tspan[0], don't run a simulation
-                if time > tspan[0]:  # run a simulation
+                if pert_time > tspan[0] or tspan[0] > pert_time > pert_time_last:  # run a simulation
                     if i == 0:  # run a simulation with no perturbation
-                        tspan_i = [t for t in tspan if t <= time]
+                        tspan_i = [t for t in tspan if t < pert_time] + [pert_time]
                     else:
-                        tspan_i += [t for t in tspan if tspan_i[0] < t <= time]
+                        tspan_i = [pert_time_last] + [t for t in tspan if pert_time_last < t < pert_time] + [pert_time]
                     sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
                     # save output
                     if output is None:
@@ -51,30 +52,38 @@ class SequentialInjections(SimulationProtocol):
                     # if there are NaNs in the initials, just return the current output
                     if np.any(np.isnan(initials)):
                         return output
-                # add perturbation to initials for next iteration
-                tspan_i = [time]  # TODO: need to handle the case where multiple perturbations occur before tspan[0]
-                # get index of perturbation
-                idx_perturb = [str(sp) for sp in self.solver.model.species].index(perturb)  # TODO: speed up by saving this index
-                initials[idx_perturb] = amount
+                # save the perturbation time for the next iteration
+                pert_time_last = pert_time
+                # add perturbation to initials or param_values for next iteration
+                sp_names = [str(sp) for sp in self.solver.model.species]
+                par_names = [p.name for p in self.solver.model.parameters]
+                if perturb in sp_names:
+                    idx_perturb = sp_names.index(perturb)  # TODO: speed up by saving this index
+                    initials[idx_perturb] = pert_value
+                elif perturb in par_names:
+                    idx_perturb = par_names.index(perturb)  # TODO: speed up by saving this index
+                    param_values[idx_perturb] = pert_value
+                else:
+                    raise Exception("Perturbation '%s' not found in either model.species or model.parameters.")
             # final perturbation
-            tspan_i += [t for t in tspan if t > tspan_i[0]]
+            tspan_i = [pert_time_last] + [t for t in tspan if t > pert_time_last]
             sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
             output = sim_output.all if output is None else np.append(output, sim_output.all[1:])
         else:
-            raise Exception("'perturb_time_amount' must be either a dict or None.")
+            raise Exception("'perturb_time_value' must be either a dict or None.")
 
         return output
 
 class ParallelExperiments(SimulationProtocol):
     # noinspection PyMissingConstructor
-    def __init__(self, solver, t_equil=None, perturb_time_amount=None, scale_by_idx=None):
+    def __init__(self, solver, t_equil=None, perturb_time_value=None, scale_by_idx=None):
         # if only one dict is passed, make it a list
-        if len(np.array(perturb_time_amount).shape) == 0:
-            perturb_time_amount = [perturb_time_amount]
+        if len(np.array(perturb_time_value).shape) == 0:
+            perturb_time_value = [perturb_time_value]
         # create SequentialInjections objects to run simulations
         self.sim_protocols = []
-        for pta in perturb_time_amount:
-            self.sim_protocols.append(SequentialInjections(solver, t_equil, pta))
+        for ptv in perturb_time_value:
+            self.sim_protocols.append(SequentialInjections(solver, t_equil, ptv))
         # dict with observables as keys and indices of data points to scale by as values
         self.scale_by_idx = {} if scale_by_idx is None else scale_by_idx
 
@@ -131,9 +140,9 @@ if __name__ == "__main__":
     # tumor_injection = SequentialInjections(sim, t_equil=500, perturb_time_amount={'Tumor()': (0, 1)})
 
     # Experiment B
-    perturb_time_amount = [{'Tumor()': (0, 1)}, {'Tumor()': (0, 1), 'Bisphos()': (6, 1)}]
+    perturb_time_value = [{'Tumor()': (0, 1)}, {'Tumor()': (0, 1), 'Bisphos()': (6, 1)}]
     scale_by_idx = {'Tumor_tot': 3}  # [0, 6, 7, 14, 21, 28, 0, 6, 7, 14, 21, 28], t=14 in expt 1 is idx 3
-    multi_exp_injection = ParallelExperiments(sim, t_equil=500, perturb_time_amount=perturb_time_amount,
+    multi_exp_injection = ParallelExperiments(sim, t_equil=500, perturb_time_value=perturb_time_value,
                                               scale_by_idx=scale_by_idx)
 
     result = multi_exp_injection.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
