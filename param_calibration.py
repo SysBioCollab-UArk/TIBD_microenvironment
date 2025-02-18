@@ -664,15 +664,18 @@ class ParameterCalibration(object):
                 # plot simulated data as a percent envelope
                 print('   Simulated data...', end='')
                 yvals = np.array([output[obs_name] for output in outputs])
-                yvals_min = np.percentile(yvals, fill_between[0], axis=0)
-                yvals_max = np.percentile(yvals, fill_between[1], axis=0)
-                plt.fill_between(tspans[n], yvals_min, yvals_max, alpha=0.25, color=colors[n][i],
-                                 label=leg_labels[n][i])
-                # save simulation data, if requested
-                if save_sim_data:
-                    sim_id = experiments[n] if n < n_experiments else n
-                    for line in zip(tspans[n], yvals_min, yvals_max):
-                        csvwriter.writerow([obs_name] + list(line) + [sim_id])
+                # reshape yvals_min and yvals_max to handle the case where multiple experiments are merged into one
+                # using the ParallelExperiments simulation protocol class
+                yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))
+                yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))
+                # loop over each sub-experiment (if there's only 1 expt, will only loop once)
+                for ymin, ymax in zip(yvals_min, yvals_max):
+                    plt.fill_between(tspans[n], ymin, ymax, alpha=0.25, color=colors[n][i], label=leg_labels[n][i])
+                    # save simulation data, if requested
+                    if save_sim_data:
+                        sim_id = experiments[n] if n < n_experiments else n
+                        for line in zip(tspans[n], ymin, ymax):
+                            csvwriter.writerow([obs_name] + list(line) + [sim_id])
                 print('DONE')
                 # plot experimental data
                 if n < n_experiments:
