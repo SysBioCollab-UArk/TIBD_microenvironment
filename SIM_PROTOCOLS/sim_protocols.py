@@ -125,7 +125,7 @@ class ParallelExperiments(SimulationProtocol):
         # run simulations
         output = []
         for protocol in self.sim_protocols:
-            output.append(protocol.run(tspan=tspan, param_values=param_values))
+            output.append(protocol.run(tspan=tspan, param_values=param_values.copy()))
         # concatenate output arrays
         output = np.concatenate(output)
         # scale output arrays
