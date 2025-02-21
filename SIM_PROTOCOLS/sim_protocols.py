@@ -1,6 +1,32 @@
 from param_calibration import SimulationProtocol
 import numpy as np
 from collections.abc import Iterable
+from math import isclose
+
+
+def find_exact_index(tspan, target, rel_tol=1e-9):
+    """Find the index of an exact floating-point match in a list.
+
+    Raises an Exception if no exact match is found.
+    """
+    for i, t in enumerate(tspan):
+        if isclose(t, target, rel_tol=rel_tol):
+            return i
+    raise ValueError(f"No exact match found for target {target} in tspan.")
+
+
+def find_closest_index(tspan, target):
+    best_idx = 0
+    min_diff = abs(tspan[0] - target)
+
+    for i in range(1, len(tspan)):  # Start from index 1 to avoid redundant checks
+        diff = abs(tspan[i] - target)
+        if diff < min_diff:
+            best_idx, min_diff = i, diff
+        else:
+            break  # Exit early if difference starts increasing
+
+    return best_idx
 
 
 def is_list_like(obj):
@@ -110,7 +136,7 @@ class SequentialInjections(SimulationProtocol):
 
 class ParallelExperiments(SimulationProtocol):
     # noinspection PyMissingConstructor
-    def __init__(self, solver, t_equil=None, perturb_time_value=None, scale_by_idx=None):
+    def __init__(self, solver, t_equil=None, perturb_time_value=None, scale_by_eidx_time=None):
         # if a 1D list-like object is passed, make it 2D
         if is_list_like(perturb_time_value) and all(not is_list_like(item) for item in perturb_time_value):
             perturb_time_value = [perturb_time_value]
@@ -118,19 +144,24 @@ class ParallelExperiments(SimulationProtocol):
         self.sim_protocols = []
         for ptv in perturb_time_value:
             self.sim_protocols.append(SequentialInjections(solver, t_equil, ptv))
-        # dict with observables as keys and indices of data points to scale by as values
-        self.scale_by_idx = {} if scale_by_idx is None else scale_by_idx
+        # dict with observables as keys and tuples with experiment index and times of data points to scale by
+        # Example: scale_by_eidx_time = {'pSmad23': (0, 14)}
+        self.scale_by_eidx_time = {} if scale_by_eidx_time is None else scale_by_eidx_time
 
     def run(self, tspan, param_values):
         # run simulations
         output = []
         for protocol in self.sim_protocols:
             output.append(protocol.run(tspan=tspan, param_values=param_values.copy()))
+        # scale output arrays
+        for obs in self.scale_by_eidx_time.keys():
+            e_idx = self.scale_by_eidx_time[obs][0]  # expt index
+            t_idx = find_closest_index(tspan, self.scale_by_eidx_time[obs][1])  # time pt index
+            scale_val = output[e_idx][obs][t_idx]  # value to scale by
+            for out in output:
+                out[obs] /= scale_val
         # concatenate output arrays
         output = np.concatenate(output)
-        # scale output arrays
-        for obs in self.scale_by_idx.keys():
-            output[obs] /= output[obs][self.scale_by_idx[obs]]
 
         return output
 
@@ -174,10 +205,11 @@ if __name__ == "__main__":
     # tumor_injection = SequentialInjections(sim, t_equil=500, perturb_time_value=('Tumor()', 0, 1))
 
     # Experiment B
-    perturb_time_value = [('Tumor()', 0, 1), [('Tumor()', 0, 1), ('Bisphos()', 6, 1)]]
-    scale_by_idx = {'Tumor_tot': 3}  # [0, 6, 7, 14, 21, 28, 0, 6, 7, 14, 21, 28], t=14 in expt 1 is idx 3
+    perturb_time_value = [('Tumor()', 0, 1),
+                          [('Tumor()', 0, 1), ('Bisphos()', 6, 1)]]
+    scale_by_eidx_time = {'Tumor_tot': (0, 14)}  # scale by output at t=14 in expt 0
     multi_exp_injection = ParallelExperiments(sim, t_equil=500, perturb_time_value=perturb_time_value,
-                                              scale_by_idx=scale_by_idx)
+                                              scale_by_eidx_time=scale_by_eidx_time)
 
     result = multi_exp_injection.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
 

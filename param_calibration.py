@@ -113,7 +113,6 @@ class ParameterCalibration(object):
         # create normal distributions around each data point to use in the likelihood function
         self.like_data = []
         for n, (expt, obs, tspan) in enumerate(zip(self.experiments, self.observables, self.tdata)):
-            # print(expt, obs, tspan)
             self.like_data.append({})
             for name in obs:
                 data = [d for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
@@ -131,8 +130,6 @@ class ParameterCalibration(object):
                 self.like_data[-1][name] = norm(loc=avg, scale=se)
                 # now flatten the tspan_mask, so nothing will change for the simple case of one alt_expt_id per expt_id
                 self.tspan_masks[n][name] = np.array(self.tspan_masks[n][name]).flatten()
-        #         print('  ', name, self.tspan_masks[n][name])
-        # quit()
 
         # store the full set of parameter values
         self.param_values = np.array([p.value for p in self.model.parameters])
@@ -317,13 +314,17 @@ class ParameterCalibration(object):
             leg_labels = [[obs_name for obs_name in self.observables[n]] for n in range(self.n_experiments)] \
                 if obs_labels is None else [[obs_labels.get(obs_name, obs_name) for obs_name in self.observables[n]]
                                             for n in range(self.n_experiments)]
-            # increase the number of time points for the simulations by a factor of 10
+            # get output time points for simulations
             tspans = _plot_tc_args.pop('tspans')  # pop tspans out of the dict since it's not passed as a kwarg below
+            # if tspans not defined by user, increase the number of time points for the simulations by a factor of 10
             if tspans is None:
                 tspans = [np.linspace(
                     self.tdata[n][0], self.tdata[n][-1],
                     int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
                     for n in range(self.n_experiments)]
+                # add in the experimental time points and filter them out if they overlap with the points above
+                for n in range(self.n_experiments):
+                    tspans[n] = np.unique(np.append(tspans[n], self.tdata[n][1:-1]))
             # make the plots
             if _plot_tc_args['xlabel'] is None:
                 _plot_tc_args['xlabel'] = xlabel
@@ -623,7 +624,7 @@ class ParameterCalibration(object):
 
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
-        # FOR DEBUGGING ###
+        # FOR DEBUGGING ### TODO
         # samples_unique = samples_unique[:10]
         # counts = counts[:10]
         # #################
@@ -669,8 +670,11 @@ class ParameterCalibration(object):
                 yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))
                 yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))
                 # loop over each sub-experiment (if there's only 1 expt, will only loop once)
-                for ymin, ymax in zip(yvals_min, yvals_max):
-                    plt.fill_between(tspans[n], ymin, ymax, alpha=0.25, color=colors[n][i], label=leg_labels[n][i])
+                hatch_patterns = [None, '/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*']
+                for j, (ymin, ymax) in enumerate(zip(yvals_min, yvals_max)):
+                    hatch = hatch_patterns[j % len(hatch_patterns)]
+                    plt.fill_between(tspans[n], ymin, ymax, alpha=0.25, color=colors[n][i], hatch=hatch,
+                                     hatch_linewidth=3, label=leg_labels[n][i])
                     # save simulation data, if requested
                     if save_sim_data:
                         sim_id = experiments[n] if n < n_experiments else n
@@ -679,19 +683,37 @@ class ParameterCalibration(object):
                 print('DONE')
                 # plot experimental data
                 if n < n_experiments:
-                    time = [d['time'] for d in raw_data if d['observable'] == obs_name
-                            and d['expt_id'] == experiments[n]]
-                    avg = [d['average'] for d in raw_data if d['observable'] == obs_name
-                           and d['expt_id'] == experiments[n]]
-                    stderr = [d['stderr'] for d in raw_data if d['observable'] == obs_name
-                              and d['expt_id'] == experiments[n]]
                     label = 'experiment' if n_experiments == 1 else 'experiment %s' % str(experiments[n])
-                    plt.errorbar(time, avg, yerr=stderr, capsize=6, fmt='o', ms=8, mfc=colors[n][i], mec=colors[n][i],
-                                 ecolor=colors[n][i], label=label)
+                    suffix = ['']
+                    if len(yvals_min) == 1:
+                        times = [[d['time'] for d in raw_data if d['observable'] == obs_name
+                                and d['expt_id'] == experiments[n]]]
+                        avgs = [[d['average'] for d in raw_data if d['observable'] == obs_name
+                               and d['expt_id'] == experiments[n]]]
+                        stderrs = [[d['stderr'] for d in raw_data if d['observable'] == obs_name
+                                  and d['expt_id'] == experiments[n]]]
+                    else: # need to use if/else because 'alt_expt_id' column may not exist if len(yvals_min) == 1
+                        alt_expt_ids = np.unique([d['alt_expt_id'] for d in raw_data if d['expt_id'] == experiments[n]])
+                        suffix = [' (alt %d)' % (id + 1) for id in range(len(alt_expt_ids))]
+                        times = [[d['time'] for d in raw_data if d['observable'] == obs_name
+                                and d['expt_id'] == experiments[n] and d['alt_expt_id'] == alt_expt_id]
+                                for alt_expt_id in alt_expt_ids]
+                        avgs = [[d['average'] for d in raw_data if d['observable'] == obs_name
+                               and d['expt_id'] == experiments[n] and d['alt_expt_id'] == alt_expt_id]
+                               for alt_expt_id in alt_expt_ids]
+                        stderrs = [[d['stderr'] for d in raw_data if d['observable'] == obs_name
+                                  and d['expt_id'] == experiments[n] and d['alt_expt_id'] == alt_expt_id]
+                                  for alt_expt_id in alt_expt_ids]
+                    markers = ['o', '^', 's', 'v', '<', '>', 'D', 'p', 'H', '*']
+                    for j, (time, avg, stderr) in enumerate(zip(times, avgs, stderrs)):
+                        marker = markers[j % len(markers)]
+                        plt.errorbar(time, avg, yerr=stderr, capsize=6, fmt=marker, ms=8, mfc=colors[n][i],
+                                     mec=colors[n][i], ecolor=colors[n][i], label=label+suffix[j])
+
                     # To avoid confusion, only print the following message if there is actual expt data
                     # NOTE: to get the correct legend labels, we still need to make the errorbar plot above, even if
                     # there is no expt data
-                    if len(time) > 0:
+                    if len(times[0]) > 0:
                         print('   Experimental data...DONE')
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabels[n][i])

@@ -15,9 +15,9 @@ tumor_injection = SequentialInjections(solver, t_equil=500, perturb_time_value=(
 # tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
 #                                                perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
 perturb_time_value = [('Tumor()', 0, 1), [('Tumor()', 0, 1), ('Bisphos()', 6, 1)]]
-scale_by_idx = {'Tumor_tot': 3}  # [0, 6, 7, 14, 21, 28, 0, 6, 7, 14, 21, 28], t=14 in expt 1 is idx 3
+scale_by_eidx_time = {'Tumor_tot': (0, 14)}  # scale by output at t=14 in expt 0
 multi_exp_injection = ParallelExperiments(solver, t_equil=500, perturb_time_value=perturb_time_value,
-                                          scale_by_idx=scale_by_idx)
+                                          scale_by_eidx_time=scale_by_eidx_time)
 
 # Experiment C
 bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_time_value=('Bisphos()', 6, 1))
