@@ -34,50 +34,81 @@ def is_list_like(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
 
 
-def validate_SeqInj_input(data):
-    # Case 1: If data is list-like but not a list of lists → Must have exactly 3 elements
-    if is_list_like(data) and all(not is_list_like(item) for item in data):
-        if len(data) == 3:
-            return [tuple(data)]  # Convert to list of tuples for consistency
-        else:
-            raise ValueError(f"Expected a list-like object with exactly 3 elements, but got {len(data)} elements.")
+def validate_time_perturb_value(time_perturb_value):
+    """
+    Validates and **modifies in place** the given dictionary to ensure it follows the expected format:
+    {time: [(perturb_name, value), ...]} or {time: (perturb_name, value)}
 
-    # Case 2: If data is a list-like object of list-like objects → Validate each inner object
-    elif is_list_like(data) and all(is_list_like(item) for item in data):
-        if all(len(item) == 3 for item in data):
-            return [tuple(item) for item in data]  # Convert each to a tuple
-        else:
-            raise ValueError(f"Each inner list-like object must have exactly 3 elements.")
+    - Keys must be numeric (int or float).
+    - Values must be either:
+      - A single list-like object of exactly 2 elements
+      - A list-like object of list-like objects, where each inner object has 2 elements
+    - The first element (perturb_name) must be a string.
+    - The second element (value) must be numeric (int or float).
 
-    else:
-        raise TypeError(
-            f"Invalid input type. Expected a list-like object with 3 elements or a list-like object of such objects.")
+    Returns the modified dictionary with a standardized format.
+    """
+    if not isinstance(time_perturb_value, dict):
+        raise ValueError("Input must be a dictionary.")
+
+    for time in list(time_perturb_value.keys()):  # Iterate over keys safely
+        # Check that time keys are numeric
+        if not isinstance(time, (int, float)):
+            raise ValueError(f"Invalid key {time}: Time keys must be integers or floats.")
+
+        perturbations = time_perturb_value[time]
+
+        # Ensure perturbations is list-like (but not string)
+        if not is_list_like(perturbations):
+            raise ValueError(f"Invalid value at time {time}: Must be list-like.")
+
+        # If perturbations has length 2 and neither element is list-like, convert to a list of one tuple
+        if len(perturbations) == 2 and not any(is_list_like(perturb) for perturb in perturbations):
+            time_perturb_value[time] = [perturbations]  # Modify in place
+
+        # Ensure perturbations is now a list-like object of list-like objects
+        perturbations = time_perturb_value[time]  # Reassign after modification
+        if not all(is_list_like(perturb) and len(perturb) == 2 for perturb in perturbations):
+            raise ValueError(
+                f"Invalid perturbation format {perturbations} at time {time}: Must be list-like objects with 2 " +
+                "elements each."
+            )
+
+        for perturb_name, value in perturbations:
+            # Check that the first element is a string (parameter/species name)
+            if not isinstance(perturb_name, str):
+                raise ValueError(f"Invalid parameter name '{perturb_name}' at time {time}: Must be a string.")
+
+            # Check that the second element (value) is numeric (int or float)
+            if not isinstance(value, (int, float)):
+                raise ValueError(f"Invalid value {value} for '{perturb_name}' at time {time}: Must be a number " +
+                                 "(int or float).")
+
+    return time_perturb_value  # ✅ Return the modified dictionary
 
 
 class SequentialInjections(SimulationProtocol):
-    def __init__(self, solver, t_equil=None, perturb_time_value=None):
+    def __init__(self, solver, t_equil=None, time_perturb_value=None):
         super().__init__(solver, t_equil)
-        self.perturb_time_value = perturb_time_value
-        self.perturb_idx = None
-        if self.perturb_time_value is not None:
-            self.perturb_time_value = validate_SeqInj_input(self.perturb_time_value)
-            # create a dictionary to store the indices of all perturbations (initials or param_values)
-            perturbs = np.unique([pta[0] for pta in self.perturb_time_value])
-            self.perturb_idx = dict(zip(perturbs, [None for p in perturbs]))
+        self.time_perturb_value = {} if time_perturb_value is None else validate_time_perturb_value(time_perturb_value)
+        # use a set ({}) to get unique perturb names
+        perturbs = {perturb[0] for perturbations in time_perturb_value.values() for perturb in perturbations}
+        # create a dictionary to store the indices of all perturbations (initials or param_values)
+        self.perturb_idx = dict(zip(perturbs, [None for p in perturbs]))
         # store the species and parameter names, so don't have to keep generating these lists over and over
         self.sp_names = [str(sp) for sp in self.solver.model.species]
         self.par_names = [p.name for p in self.solver.model.parameters]
 
     def run(self, tspan, param_values):
 
-        if self.perturb_time_value is None:  # just do the default simulation protocol
+        if len(self.time_perturb_value.keys()) == 0:  # just do the default simulation protocol
             return super().run(tspan, param_values)
 
-        # sorted by perturbation times, in case any are < tspan[0]
-        self.perturb_time_value = sorted(self.perturb_time_value, key=lambda x: x[1])
+        # loop over sorted perturbation times, in case any are < tspan[0]
+        sorted_perturb_times = sorted(self.time_perturb_value.keys())
         # equilibration
         if self.t_equil is not None:
-            min_tsim = min(self.perturb_time_value[0][1], tspan[0])  # min of perturb time and tspan[0]
+            min_tsim = min(sorted_perturb_times[0], tspan[0])  # min of perturb time and tspan[0]
             out = self.solver.run(tspan=np.linspace(-self.t_equil + min_tsim, min_tsim, 2),
                                   param_values=param_values)
             initials = out.species[-1]
@@ -90,10 +121,7 @@ class SequentialInjections(SimulationProtocol):
         # sort drug treatments by time of application and loop over them
         output = None
         pert_time_last = np.inf
-        for i, ptv in enumerate(self.perturb_time_value):
-            perturb = ptv[0]
-            pert_time = ptv[1]
-            pert_value = ptv[2]
+        for i, pert_time in enumerate(sorted_perturb_times):
             # if time <= tspan[0], don't run a simulation
             if pert_time > tspan[0] or tspan[0] > pert_time > pert_time_last:  # run a simulation
                 if i == 0:  # run a simulation with no perturbation
@@ -116,17 +144,18 @@ class SequentialInjections(SimulationProtocol):
                     return output
             # save the perturbation time for the next iteration
             pert_time_last = pert_time
-            # add perturbation to initials or param_values for next iteration
-            if perturb in self.sp_names:
-                if self.perturb_idx[perturb] is None:
-                    self.perturb_idx[perturb] = self.sp_names.index(perturb)
-                initials[self.perturb_idx[perturb]] = pert_value
-            elif perturb in self.par_names:
-                if self.perturb_idx[perturb] is None:
-                    self.perturb_idx[perturb] = self.par_names.index(perturb)
-                param_values[self.perturb_idx[perturb]] = pert_value
-            else:
-                raise Exception("Perturbation '%s' not found in either model.species or model.parameters." % perturb)
+            # add perturbations to initials or param_values for next iteration
+            for perturb, pert_value in self.time_perturb_value[pert_time]:
+                if perturb in self.sp_names:
+                    if self.perturb_idx[perturb] is None:
+                        self.perturb_idx[perturb] = self.sp_names.index(perturb)
+                    initials[self.perturb_idx[perturb]] = pert_value
+                elif perturb in self.par_names:
+                    if self.perturb_idx[perturb] is None:
+                        self.perturb_idx[perturb] = self.par_names.index(perturb)
+                    param_values[self.perturb_idx[perturb]] = pert_value
+                else:
+                    raise Exception("Perturbation '%s' not found in either model.species or model.parameters." % perturb)
         # final perturbation
         tspan_i = [pert_time_last] + [t for t in tspan if t > pert_time_last]
         sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
@@ -136,14 +165,14 @@ class SequentialInjections(SimulationProtocol):
 
 class ParallelExperiments(SimulationProtocol):
     # noinspection PyMissingConstructor
-    def __init__(self, solver, t_equil=None, perturb_time_value=None, scale_by_eidx_time=None):
-        # if a 1D list-like object is passed, make it 2D
-        if is_list_like(perturb_time_value) and all(not is_list_like(item) for item in perturb_time_value):
-            perturb_time_value = [perturb_time_value]
+    def __init__(self, solver, t_equil=None, time_perturb_value=None, scale_by_eidx_time=None):
+        # if a dict is passed, wrap it in a list
+        if isinstance(time_perturb_value, dict):
+            time_perturb_value = [time_perturb_value]
         # create SequentialInjections objects to run simulations
         self.sim_protocols = []
-        for ptv in perturb_time_value:
-            self.sim_protocols.append(SequentialInjections(solver, t_equil, ptv))
+        for tpv in time_perturb_value:
+            self.sim_protocols.append(SequentialInjections(solver, t_equil, tpv))
         # dict with observables as keys and tuples with experiment index and times of data points to scale by
         # Example: scale_by_eidx_time = {'pSmad23': (0, 14)}
         self.scale_by_eidx_time = {} if scale_by_eidx_time is None else scale_by_eidx_time
@@ -202,25 +231,26 @@ if __name__ == "__main__":
     sim = ScipyOdeSimulator(model)
 
     # Experiment A
-    # tumor_injection = SequentialInjections(sim, t_equil=500, perturb_time_value=('Tumor()', 0, 1))
+    # tumor_injection = SequentialInjections(sim, t_equil=500, time_perturb_value={0: ('Tumor()', 1)})
 
     # Experiment B
-    perturb_time_value = [('Tumor()', 0, 1),
-                          [('Tumor()', 0, 1), ('Bisphos()', 6, 1)]]
+    time_perturb_value = [{0: ('Tumor()', 1)},
+                          {0: ('Tumor()', 1), 6: ('Bisphos()', 1)}]
     scale_by_eidx_time = {'Tumor_tot': (0, 14)}  # scale by output at t=14 in expt 0
-    multi_exp_injection = ParallelExperiments(sim, t_equil=500, perturb_time_value=perturb_time_value,
+    multi_exp_injection = ParallelExperiments(sim, t_equil=500, time_perturb_value=time_perturb_value,
                                               scale_by_eidx_time=scale_by_eidx_time)
 
-    result = multi_exp_injection.run(tspan=[0, 6, 7, 14, 21, 28], param_values=sim.param_values[0])
+    tspan = np.array([0, 6, 7, 14, 21, 28])
+    result = multi_exp_injection.run(tspan=tspan, param_values=sim.param_values[0])
 
     # Experiment C
-    # bisphos_injection = SequentialInjections(sim, t_equil=500, perturb_time_value=('Bisphos()', 6, 1))
+    # bisphos_injection = SequentialInjections(sim, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
 
     tspan_mask = {
         'Bone_tot': [[True, False, True, True, True, True], [True, True, True, True, True, True]],
         'Tumor_tot': [[False, False, False, True, True, True], [False, False, False, True, True, True]],
     }
-    tspan = np.array([0, 6, 7, 14, 21, 28])
+
     for obs in observables:
         plt.figure(obs)
         colors = [line.get_color() for i, line in enumerate(plt.gca().get_lines()) if i % 3 == 0]

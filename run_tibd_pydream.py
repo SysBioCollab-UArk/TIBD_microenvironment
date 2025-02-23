@@ -9,18 +9,19 @@ add_bisphosphonate_components()
 solver = ScipyOdeSimulator(model)
 
 # Experiment A
-tumor_injection = SequentialInjections(solver, t_equil=500, perturb_time_value=('Tumor()', 0, 1))
+tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor()', 1)})
 
 # Experiment B
 # tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
 #                                                perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
-perturb_time_value = [('Tumor()', 0, 1), [('Tumor()', 0, 1), ('Bisphos()', 6, 1)]]
+time_perturb_value = [{0: ('Tumor()', 1)},
+                      {0: ('Tumor()', 1), 6: ('Bisphos()', 1)}]
 scale_by_eidx_time = {'Tumor_tot': (0, 14)}  # scale by output at t=14 in expt 0
-multi_exp_injection = ParallelExperiments(solver, t_equil=500, perturb_time_value=perturb_time_value,
+multi_exp_injection = ParallelExperiments(solver, t_equil=500, time_perturb_value=time_perturb_value,
                                           scale_by_eidx_time=scale_by_eidx_time)
 
 # Experiment C
-bisphos_injection = SequentialInjections(solver, t_equil=500, perturb_time_value=('Bisphos()', 6, 1))
+bisphos_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
 
 
 custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
