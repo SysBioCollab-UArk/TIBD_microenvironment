@@ -42,7 +42,7 @@ class ParameterCalibration(object):
         self.raw_data = np.genfromtxt(exp_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
 
         # determine how many experiments there are and what the time points and observables are for each
-        self.experiments = np.unique([d['expt_id'] for d in self.raw_data])
+        self.experiments = list(dict.fromkeys([d['expt_id'] for d in self.raw_data])) # preserves order of appearance
         self.n_experiments = len(self.experiments)
         self.observables = [np.unique([d['observable'] for d in self.raw_data if d['expt_id'] == expt])
                             for expt in self.experiments]

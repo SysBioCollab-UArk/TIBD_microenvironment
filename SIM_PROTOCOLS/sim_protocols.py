@@ -101,6 +101,15 @@ class SequentialInjections(SimulationProtocol):
 
     def run(self, tspan, param_values):
 
+        def save_output():
+            if output is None:
+                # only keep output points for t >= tspan[0]
+                idx_keep = [idx for idx in range(len(tspan_i)) if tspan_i[idx] >= tspan[0]]
+                return sim_output.all[idx_keep]
+            else:
+                # remove first output point, since time of perturbation is included in last tspan, if it's there
+                return np.append(output, sim_output.all[1:])
+
         if len(self.time_perturb_value.keys()) == 0:  # just do the default simulation protocol
             return super().run(tspan, param_values)
 
@@ -130,13 +139,7 @@ class SequentialInjections(SimulationProtocol):
                     tspan_i = [pert_time_last] + [t for t in tspan if pert_time_last < t < pert_time] + [pert_time]
                 sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
                 # save output
-                if output is None:
-                    # only keep output points for t >= tspan[0]
-                    idx_keep = [idx for idx in range(len(tspan_i)) if tspan_i[idx] >= tspan[0]]
-                    output = sim_output.all[idx_keep]
-                else:
-                    # remove first output point, since time of perturbation is included in last tspan, if it's there
-                    output = np.append(output, sim_output.all[1:])
+                output = save_output()
                 # initials for next iteration
                 initials = sim_output.species[-1]
                 # if there are NaNs in the initials, just return the current output
@@ -160,7 +163,7 @@ class SequentialInjections(SimulationProtocol):
         tspan_i = [pert_time_last] + [t for t in tspan if t > pert_time_last]
         sim_output = self.solver.run(tspan=tspan_i, param_values=param_values, initials=initials)
 
-        return sim_output.all if output is None else np.append(output, sim_output.all[1:])
+        return save_output()
 
 
 class ParallelExperiments(SimulationProtocol):
