@@ -570,7 +570,7 @@ class ParameterCalibration(object):
         if exp_data is not None:
             raw_data = exp_data if isinstance(exp_data, np.ndarray) \
                 else np.genfromtxt(exp_data, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
-            experiments = np.unique([d['expt_id'] for d in raw_data])
+            experiments = list(dict.fromkeys([d['expt_id'] for d in raw_data]))  # preserves order of appearance
             n_experiments = len(experiments)
             if observables is None:
                 observables = [np.unique([d['observable'] for d in raw_data if d['expt_id'] == expt])
