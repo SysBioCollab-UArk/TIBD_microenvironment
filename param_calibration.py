@@ -420,7 +420,6 @@ class ParameterCalibration(object):
             files = sorted([file for file in sample_files if re.search(r'chain_%d' % chain, file)],
                            key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
             samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
-        # samples = np.concatenate(tuple(samples_chain[chain][burnin:] for chain in range(len(chains))))
 
         # if a likelihood cutoff is defined, load the likelihoods and remove samples that fall below the cutoff
         if cutoff is not None:
