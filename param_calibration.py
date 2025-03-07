@@ -221,7 +221,7 @@ class ParameterCalibration(object):
                                 plot_pd_args=plot_pd_args, plot_tc_args=plot_tc_args)
 
     def create_figures(self, logps_files, samples_files, obs_labels=None, show_plots=False, plot_ll_args=None,
-                       plot_pd_args=None, plot_tc_args=None, which_plots='all'):
+                       plot_pd_args=None, plot_tc_args=None, which_plots='all', max_time_points=1000):
 
         # which plots should we create? (NOTE: user can pass an integer too)
         which_plots = \
@@ -320,7 +320,7 @@ class ParameterCalibration(object):
             if tspans is None:
                 tspans = [np.linspace(
                     self.tdata[n][0], self.tdata[n][-1],
-                    int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1))
+                    min(int((self.tdata[n][-1] - self.tdata[n][0]) * 10 + 1), max_time_points))
                     for n in range(self.n_experiments)]
                 # add in the experimental time points and filter them out if they overlap with the points above
                 for n in range(self.n_experiments):
