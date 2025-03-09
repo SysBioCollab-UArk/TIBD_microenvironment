@@ -58,11 +58,12 @@ class ParameterCalibration(object):
                 new_data[col] = self.raw_data[col]
             new_data['alt_expt_id'] = self.raw_data['expt_id']
             self.raw_data = new_data
-        # get alternative experiment IDs for all experiments (allows multiple experiments to be merged under one ID)
+        # get alternative experiment IDs for all experiments, retaining order of appearance
+        # (allows multiple experiments to be merged under one ID)
         alt_experiments = dict(
             zip(
                 self.experiments,
-                [list(np.unique([d['alt_expt_id'] for d in self.raw_data if d['expt_id'] == expt]))
+                [list(dict.fromkeys([d['alt_expt_id'] for d in self.raw_data if d['expt_id'] == expt]))
                  for expt in self.experiments]
             )
         )
@@ -692,7 +693,9 @@ class ParameterCalibration(object):
                         stderrs = [[d['stderr'] for d in raw_data if d['observable'] == obs_name
                                   and d['expt_id'] == experiments[n]]]
                     else: # need to use if/else because 'alt_expt_id' column may not exist if len(yvals_min) == 1
-                        alt_expt_ids = np.unique([d['alt_expt_id'] for d in raw_data if d['expt_id'] == experiments[n]])
+                        # get alt_expt_ids, retaining order of appearance
+                        alt_expt_ids = list(dict.fromkeys(
+                            [d['alt_expt_id'] for d in raw_data if d['expt_id'] == experiments[n]]))
                         suffix = [' (alt %d)' % (id + 1) for id in range(len(alt_expt_ids))]
                         times = [[d['time'] for d in raw_data if d['observable'] == obs_name
                                 and d['expt_id'] == experiments[n] and d['alt_expt_id'] == alt_expt_id]
