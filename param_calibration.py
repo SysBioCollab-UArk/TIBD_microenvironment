@@ -661,10 +661,13 @@ class ParameterCalibration(object):
                         future_output = pool.apply_async(run_simulation, (sim_protocols[n], tspans[n], param_values,))
                         try:
                             output = future_output.get(timeout=timeout_seconds)  # Wait for completion
+                            print(f"Simulation successful for parameter set #{i}")
                         except multiprocessing.TimeoutError:
                             print(f"Skipping parameter sample {i} due to timeout.")
                             pool.terminate()  # Kill the process if it exceeds the timeout
                             counts_n = np.delete(counts_n, i, axis=0)  # remove counts for this parameter set
+                        except Exception as e:
+                            print(f"Error at parameter set #{i}: {e}")
                     if output is not None:
                         outputs.append(output)
                 if (i + 1) % 20 == 0:
