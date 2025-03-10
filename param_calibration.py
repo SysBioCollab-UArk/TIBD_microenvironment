@@ -10,6 +10,12 @@ import glob
 from itertools import combinations
 import os
 import csv
+import multiprocessing
+
+
+# Function for timeout option
+def run_simulation(sim_protocol, tspan, p_values):
+    return sim_protocol.run(tspan, p_values)
 
 
 class SimulationProtocol(object):
@@ -550,7 +556,8 @@ class ParameterCalibration(object):
 
     @staticmethod
     def plot_timecourses(model, tspans, sim_protocols, param_samples, parameter_idxs, observables=None, exp_data=None,
-                         samples_idxs=None, show_plot=False, save_plot=True, separate_plots=True, **kwargs):
+                         samples_idxs=None, show_plot=False, save_plot=True, separate_plots=True, timeout_seconds=None,
+                         **kwargs):
 
         # if there's only one simulation to run, put the following objects inside a list of size 1, since the code
         # is set up to loop over the number of simulations
@@ -641,18 +648,32 @@ class ParameterCalibration(object):
             else:
                 print("Perturbation %d of %d..." % (n - n_experiments + 1, n_sims - n_experiments))
             outputs = []
+            counts_n = counts.copy()  # don't change 'counts' array, make a copy
             # run simulations
             for i, sample in enumerate(samples_unique):
                 print(i, end=' ')
                 param_values[parameter_idxs] = 10 ** sample[samples_idxs[n]]
-                outputs.append(sim_protocols[n].run(tspans[n], param_values))
+                if timeout_seconds is None:
+                    outputs.append(sim_protocols[n].run(tspans[n], param_values))
+                else:  # use timeout option (if PyDREAM ran as expected, this shouldn't be necessary)
+                    output = None
+                    with multiprocessing.Pool(processes=1) as pool:
+                        future_output = pool.apply_async(run_simulation, (sim_protocols[n], tspans[n], param_values,))
+                        try:
+                            output = future_output.get(timeout=timeout_seconds)  # Wait for completion
+                        except multiprocessing.TimeoutError:
+                            print(f"Skipping parameter sample {i} due to timeout.")
+                            pool.terminate()  # Kill the process if it exceeds the timeout
+                            counts_n = np.delete(counts_n, i, axis=0)  # remove counts for this parameter set
+                    if output is not None:
+                        outputs.append(output)
                 if (i + 1) % 20 == 0:
                     print()
             print('DONE')
             # remove any simulations that produced NaNs
             idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))]
             outputs = np.delete(outputs, idx_remove, axis=0)
-            counts_n = np.delete(counts, idx_remove, axis=0)  # don't change 'counts' array, make a copy
+            counts_n = np.delete(counts_n, idx_remove, axis=0)
             # use 'counts' to generate full set of simulation outputs for correct weighting of plots
             outputs = np.repeat(outputs, counts_n, axis=0)
             # plot results
