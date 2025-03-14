@@ -31,12 +31,6 @@ for key in expt_data.keys():
 
 print('----------')
 
-# Observables
-obs_names = np.unique(expt_data_raw['observable'])
-print(obs_names)
-
-print('----------')
-
 # Simulation data
 sim_data_file = os.path.join(path, 'SIM_DATA.csv')
 sim_data_raw = np.genfromtxt(sim_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
@@ -51,7 +45,7 @@ for sim_id in sim_ids:
         data = np.array([d for d in sim_data_raw if d['sim_id'] == sim_id])
         # number of experiments and observables
         n_expts = n_alt_expt_ids[sim_id]
-        n_obs = len(obs_names)
+        n_obs = len(np.unique(data['observable']))
         # calculate the number of time points
         n_timepoints = len(data) // (n_expts * n_obs)
         # extract indices for each experiment
@@ -71,6 +65,11 @@ for key in sim_data.keys():
     # for d in sim_data[key][key2]:
     #     print('    ', d)
 # quit()
+
+print('----------')
+
+obs_names = np.unique(sim_data_raw['observable'])
+print(obs_names)
 
 print('----------')
 
@@ -163,8 +162,8 @@ if __name__ == '__main__':
     make_fig(['Bennett2024', 'Johnson2011 (PBS-Tumor)', 'Johnson2011 (ZA-Tumor)', 'Johnson2011 (ZA-NoTumor)'],
              'Figure_3.pdf', expt_data_only=True)
     make_fig(['Bennett2024', 'Johnson2011 (PBS-Tumor)'], 'Figure_4.pdf', expt_data_only=False)
-    make_fig(['Bennett2024', '3'], 'Figure_5.pdf', expt_data_only=False)
-    make_fig(['Johnson2011 (ZA-Tumor)', '3'], 'Figure_ZA.pdf', expt_data_only=False)
+    # make_fig(['Bennett2024', '3'], 'Figure_5.pdf', expt_data_only=False)
+    # make_fig(['Johnson2011 (ZA-Tumor)', '3'], 'Figure_ZA.pdf', expt_data_only=False)
     make_fig(['Johnson2011 (PBS-Tumor)', 'Johnson2011 (ZA-Tumor)'],
              'Figure_B_C.pdf', expt_data_only=False)
 
