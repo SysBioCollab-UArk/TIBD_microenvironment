@@ -11,6 +11,7 @@ from itertools import combinations
 import os
 import csv
 import multiprocessing
+import math
 
 
 # Function for timeout option
@@ -254,9 +255,13 @@ class ParameterCalibration(object):
         if plot_tc_args is not None:
             _plot_tc_args.update(plot_tc_args)
 
+        # List of objects returned from each function
+        # NOTE: only `plot_param_dist()` returns anything right now. The other functions return `None`
+        return_objects = [None] * 3
+
         if which_plots > 0:
             print('Plotting log-likelihoods')
-            self.plot_log_likelihood(logps_files, **_plot_ll_args)
+            return_objects[0] = self.plot_log_likelihood(logps_files, **_plot_ll_args)
 
         if which_plots > 1:
             print('Plotting parameter distributions')
@@ -296,7 +301,7 @@ class ParameterCalibration(object):
             _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
             if _plot_pd_args['save_plot'] is None:
                 _plot_pd_args['save_plot'] = filenames
-            param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
+            return_objects[1] = param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
 
         if which_plots > 2:
             print('Plotting time courses')
@@ -341,12 +346,15 @@ class ParameterCalibration(object):
                 _plot_tc_args['leg_labels'] = leg_labels
             # pop separate_plots out of the dict since it's not passed as a kwarg below
             separate_plots = _plot_tc_args.pop('separate_plots')
-            self.plot_timecourses(self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs,
-                                  exp_data=self.raw_data, samples_idxs=self.samples_idxs,
-                                  separate_plots=separate_plots, **_plot_tc_args)
+            return_objects[2] = self.plot_timecourses(
+                self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs, exp_data=self.raw_data,
+                samples_idxs=self.samples_idxs, separate_plots=separate_plots, **_plot_tc_args)
 
         if show_plots and which_plots > 0:
             plt.show()
+
+        return tuple(return_objects)
+
 
     @staticmethod
     def plot_log_likelihood(logps_files, cutoff=None, show_plot=False, save_plot=True):
@@ -406,8 +414,23 @@ class ParameterCalibration(object):
             filename = 'fig_PyDREAM_log_ps' if save_plot is True else save_plot
             plt.savefig(filename)
 
+        return None  # this is a placeholder, in case we want to return something in the future
+
     @staticmethod
     def plot_param_dist(sample_files, labels=None, groups=None, cutoff=None, show_plot=False, save_plot=True, **kwargs):
+
+
+        # Helper function for getting the optimal number of columns for the histogram figure
+        def get_ncols(ndims):
+            if not isinstance(ndims, int) or ndims <= 0:
+                raise ValueError("'ndims' must be a positive integer")
+            r1 = round(math.sqrt(ndims))  # round() returns an int
+            r2 = math.ceil(math.sqrt(ndims))  # math.ceil() also returns an int
+            while r1 * r2 >= ndims:
+                r1 -= 1
+                r2 += 1
+            return min(r1 + 1, r2 - 1)  # the smaller of the two integers is the # of columns
+
 
         # get chains and iterations from file names
         chains = []
@@ -459,12 +482,11 @@ class ParameterCalibration(object):
         for n, label, group in zip(range(len(labels)), labels, groups):
             ndims = len(group)  # number of dimensions (i.e., parameters)
             # set plot parameters
-            fscale = np.ceil(ndims / 16)
-            figsize = kwargs.get('figsize', fscale * np.array([6.4, 4.8]))
-            labelsize = kwargs.get('labelsize', 10 * max(1, (2/5 * fscale)))
-            fontsize = kwargs.get('fontsize', 10 * max(1, (3/5 * fscale)))
-            ncols = kwargs.get('ncols', int(np.ceil(np.sqrt(ndims))))
-            nrows = int(np.ceil(ndims/ncols))
+            ncols = kwargs.get('ncols', get_ncols(ndims))
+            nrows = math.ceil(ndims/ncols)
+            figsize = kwargs.get('figsize', (0.65 * ncols * 6.4, 0.5 * nrows * 4.8))
+            labelsize = kwargs.get('labelsize', 10 * max(1, (2/5 * np.ceil(nrows / 2))))
+            fontsize = kwargs.get('fontsize', 10 * max(1, (3/5 * np.ceil(nrows / 2))))
             sharex = kwargs.get('sharex', 'all')
             sharey = kwargs.get('sharey', 'none')
             # create figure
@@ -551,7 +573,7 @@ class ParameterCalibration(object):
         if show_plot:
             plt.show()
 
-        return samples
+        return samples  # these samples have been trimmed based on log-likelihood values
 
 
     @staticmethod
@@ -672,6 +694,8 @@ class ParameterCalibration(object):
             print('DONE')
             # remove any simulations that produced NaNs
             idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))]
+            if len(idx_remove) > 0:
+                print('Removing simulations', idx_remove, 'that produced NaNs')
             outputs = np.delete(outputs, idx_remove, axis=0)
             counts_n = np.delete(counts_n, idx_remove, axis=0)
             # use 'counts' to generate full set of simulation outputs for correct weighting of plots
@@ -780,3 +804,5 @@ class ParameterCalibration(object):
 
         if show_plot:
             plt.show()
+
+        return None  # this is a placeholder, in case we want to return something in the future
