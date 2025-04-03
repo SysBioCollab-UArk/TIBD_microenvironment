@@ -489,6 +489,7 @@ class ParameterCalibration(object):
             fontsize = kwargs.get('fontsize', 10 * max(1, (3/5 * np.ceil(nrows / 2))))
             sharex = kwargs.get('sharex', 'all')
             sharey = kwargs.get('sharey', 'none')
+            bw_adjust = kwargs.get('bw_adjust', 1)
             # create figure
             colors = sns.color_palette(n_colors=ndims)
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
@@ -505,7 +506,8 @@ class ParameterCalibration(object):
             col = 0
             for dim in range(ndims):
                 print(group[dim], end=' ')
-                sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col])
+                sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col],
+                            bw_adjust=bw_adjust)
                 axs[row][col].set_yticklabels([])
                 axs[row][col].set_ylabel(None)
                 axs[row][col].set_title(label[dim], fontsize=labelsize)
@@ -692,8 +694,9 @@ class ParameterCalibration(object):
                 if (i + 1) % 20 == 0:
                     print()
             print('DONE')
-            # remove any simulations that produced NaNs
-            idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))]
+            # remove any simulations that produced NaNs or ended prematurely
+            idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))
+                          or len(outputs[i]) != len(tspans[n])]
             if len(idx_remove) > 0:
                 print('Removing simulations', idx_remove, 'that produced NaNs')
             outputs = np.delete(outputs, idx_remove, axis=0)
