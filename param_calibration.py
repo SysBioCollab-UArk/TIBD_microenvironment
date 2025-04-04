@@ -79,17 +79,23 @@ class ParameterCalibration(object):
         # for a given experiment, there may be missing data points, so create masks that indicate for each observable in
         # each experiment which time points we have data for
         self.tspan_masks = []
-        for expt, obs, tspan in zip(self.experiments, self.observables, self.tdata):
+        for expt, obs, tspan, protocol in zip(self.experiments, self.observables, self.tdata, self.sim_protocols):
             self.tspan_masks.append({})
             for name in obs:
                 # create 2D masks for each observable for each experiment based on the alt_expt IDs
-                self.tspan_masks[-1][name] = [[False for t in tspan] for x in alt_experiments[expt]]
+                self.tspan_masks[-1][name] = [[False for _ in tspan] for _ in alt_experiments[expt]]
                 tdata = [[d['time'] for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt and
                          d['alt_expt_id'] == alt_expt] for alt_expt in alt_experiments[expt]]
                 for i in range(len(tspan)):
                     for j in range(len(tdata)):
                         if tspan[i] in tdata[j]:
                             self.tspan_masks[-1][name][j][i] = True
+            # if scaling by values at certain time points, add masks to exclude those points from likelihood calculation
+            if 'scale_by_eidx_time' in vars(protocol):
+                for scale_obs in protocol.scale_by_eidx_time.keys():
+                    e_idx = protocol.scale_by_eidx_time[scale_obs][0]  # expt index
+                    t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs][1])  # time pt index
+                    self.tspan_masks[-1][scale_obs][e_idx][t_idx] = False
 
         # create the list of parameters to be sampled and save their indices
         priors = {} if priors is None else priors
@@ -121,8 +127,7 @@ class ParameterCalibration(object):
 
         # create normal distributions around each data point to use in the likelihood function
         self.like_data = []
-        for n, (expt, obs, tspan, protocol) \
-                in enumerate(zip(self.experiments, self.observables, self.tdata, self.sim_protocols)):
+        for n, (expt, obs, tspan) in enumerate(zip(self.experiments, self.observables, self.tdata)):
             self.like_data.append({})
             for name in obs:
                 data = [d for d in self.raw_data if d['observable'] == name and d['expt_id'] == expt]
@@ -140,12 +145,6 @@ class ParameterCalibration(object):
                 self.like_data[-1][name] = norm(loc=avg, scale=se)
                 # now flatten the tspan_mask, so nothing will change for the simple case of one alt_expt_id per expt_id
                 self.tspan_masks[n][name] = np.array(self.tspan_masks[n][name]).flatten()
-            # if scaling by values at certain time points, add masks to exclude those points from likelihood calculation
-            if 'scale_by_eidx_time' in vars(protocol):
-                for scale_obs in protocol.scale_by_eidx_time.keys():
-                    e_idx = protocol.scale_by_eidx_time[scale_obs][0]  # expt index
-                    t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs][1])  # time pt index
-                    self.tspan_masks[n][scale_obs][e_idx * len(tspan) + t_idx] = False
 
         # store the full set of parameter values
         self.param_values = np.array([p.value for p in self.model.parameters])
