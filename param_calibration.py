@@ -505,7 +505,8 @@ class ParameterCalibration(object):
             row = 0
             col = 0
             for dim in range(ndims):
-                print(group[dim], end=' ')
+                end_line = '\n' if (dim + 1) % 20 == 0 or dim == ndims - 1 else ' '
+                print(group[dim], end=end_line)
                 sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col],
                             bw_adjust=bw_adjust)
                 axs[row][col].set_yticklabels([])
@@ -526,7 +527,6 @@ class ParameterCalibration(object):
                 if col % ncols == 0:
                     col = 0
                     row += 1
-            print()
             fig.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
             fig.supylabel('Density', fontsize=fontsize)
             ##### TODO
@@ -696,10 +696,10 @@ class ParameterCalibration(object):
             print('DONE')
             # remove any simulations that produced NaNs or ended prematurely
             idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))
-                          or len(outputs[i]) != len(tspans[n])]
+                          or len(outputs[i]) % len(tspans[n]) != 0]  # length of output should be a multiple of tspan
             if len(idx_remove) > 0:
-                print('Removing simulations', idx_remove, 'that produced NaNs')
-            outputs = np.delete(outputs, idx_remove, axis=0)
+                print('Removing simulations', idx_remove, 'that produced NaNs or ended prematurely')
+            outputs = [o for i, o in enumerate(outputs) if i not in idx_remove]  # safe remove if 'outputs' is ragged
             counts_n = np.delete(counts_n, idx_remove, axis=0)
             # use 'counts' to generate full set of simulation outputs for correct weighting of plots
             outputs = np.repeat(outputs, counts_n, axis=0)
