@@ -2,6 +2,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import container
 import os
+from collections.abc import Iterable
+from math import isclose
+
+
+def find_exact_index(tspan, target, rel_tol=1e-9):
+    """Find the index of an exact floating-point match in a list.
+
+    Raises an Exception if no exact match is found.
+    """
+    for i, t in enumerate(tspan):
+        if isclose(t, target, rel_tol=rel_tol):
+            return i
+    raise ValueError(f"No exact match found for target {target} in tspan.")
+
+
+def find_closest_index(tspan, target):
+    best_idx = 0
+    min_diff = abs(tspan[0] - target)
+
+    for i in range(1, len(tspan)):  # Start from index 1 to avoid redundant checks
+        diff = abs(tspan[i] - target)
+        if diff < min_diff:
+            best_idx, min_diff = i, diff
+        else:
+            break  # Exit early if difference starts increasing
+
+    return best_idx
+
+
+def is_list_like(obj):
+    """Check if an object is iterable but NOT a string or bytes."""
+    return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
 
 
 def get_exp_data(filepath, show_plots=False, save_plots=False):
