@@ -70,7 +70,7 @@ class SequentialInjections(SimulationProtocol):
     def run(self, tspan, param_values):
 
         def save_output():
-            if output is None:
+            if len(output) == 0:
                 # only keep output points for t >= tspan[0]
                 idx_keep = [idx for idx in range(len(tspan_i)) if tspan_i[idx] >= tspan[0]]
                 return sim_output.all[idx_keep]
@@ -96,7 +96,7 @@ class SequentialInjections(SimulationProtocol):
             # set initials for next iteration
             initials = self.solver.initials[0]
         # sort drug treatments by time of application and loop over them
-        output = None
+        output = []
         pert_time_last = np.inf
         for i, pert_time in enumerate(sorted_perturb_times):
             # if time <= tspan[0], don't run a simulation
