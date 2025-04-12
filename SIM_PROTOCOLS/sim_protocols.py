@@ -145,8 +145,11 @@ class ParallelExperiments(SimulationProtocol):
         for tpv in time_perturb_value:
             self.sim_protocols.append(SequentialInjections(solver, t_equil, tpv))
         # dict with observables as keys and tuples with experiment index and times of data points to scale by
-        # Example: scale_by_eidx_time = {'pSmad23': (0, 14)}
         self.scale_by_eidx_time = {} if scale_by_eidx_time is None else scale_by_eidx_time
+        # Example 1: Scale 'pSmad23' values by value of 'pSmad23' in expt 0 at t=14
+        #            scale_by_eidx_time = {'pSmad23': (0, 14)}
+        # Example 2: Scale 'ps3N' and 'ps3C' values by value of 'ps3N' in expt 0 at t=7200
+        #            scale_by_eidx_time = {'ps3N': (0, 7200, ['ps3C'])}
 
     def run(self, tspan, param_values):
         # run simulations
@@ -158,8 +161,11 @@ class ParallelExperiments(SimulationProtocol):
             e_idx = self.scale_by_eidx_time[obs][0]  # expt index
             t_idx = find_closest_index(tspan, self.scale_by_eidx_time[obs][1])  # time pt index
             scale_val = output[e_idx][obs][t_idx]  # value to scale by
+            # check if there are other observables to scale by this value
+            other_obs = [] if len(self.scale_by_eidx_time[obs]) < 3 else list(self.scale_by_eidx_time[obs][2])
             for out in output:
-                out[obs] /= scale_val
+                for o in [obs] + other_obs:
+                    out[o] /= scale_val
         # concatenate output arrays
         output = np.concatenate(output)
 
