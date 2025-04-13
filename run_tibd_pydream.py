@@ -4,6 +4,8 @@ from param_calibration import *
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import *
 
+exp_data_file = os.path.join('DATA', 'TIBD_PopD_Data.csv')
+
 add_bisphosphonate_components()
 
 solver = ScipyOdeSimulator(model)
@@ -16,7 +18,13 @@ tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={
 #                                                perturb_time_amount={'Tumor()': (0, 1), 'Bisphos()': (6, 1)})
 time_perturb_value = [{0: ('Tumor()', 1)},
                       {0: ('Tumor()', 1), 6: ('Bisphos()', 1)}]
-scale_by_eidx_time = {'Tumor_tot': (0, 14)}  # scale by output at t=14 in expt 0
+# scale 'Tumor_tot' by value at t=14 in expt 0 (set a detection threshold)
+def divmax(value, scale):
+    threshold = 0.5675
+    return max(value / scale, threshold)
+
+scale_by_eidx_time = \
+        {'Tumor_tot': {'eidx': 0, 'time': 14, 'scale_func': divmax}}
 multi_exp_injection = ParallelExperiments(solver, t_equil=500, time_perturb_value=time_perturb_value,
                                           scale_by_eidx_time=scale_by_eidx_time)
 
@@ -30,8 +38,6 @@ no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor
 obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
               'Tumor_tot': 'tumor cells'}
 
-exp_data_file = os.path.join('DATA', 'TIBD_PopD_Data.csv')
-
 param_expts_map = {'k_tumor_div_basal': [['A'], ['B', 'C']],  #, 'D']],
                    'k_tumor_dth': [['A'], ['B', 'C']],  #, 'D']],
                    'k_tumor_div_TGFb': [['A'], ['B', 'C']],  #, 'D']],
@@ -43,7 +49,6 @@ if __name__ == '__main__':
 
     calibrator = ParameterCalibration(model,
                                       exp_data_file,
-                                      # [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection],
                                       [tumor_injection, multi_exp_injection, bisphos_injection],
                                       priors=custom_priors,
                                       no_sample=no_sample,

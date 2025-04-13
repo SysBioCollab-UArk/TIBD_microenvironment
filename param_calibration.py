@@ -93,8 +93,8 @@ class ParameterCalibration(object):
             # if scaling by values at certain time points, add masks to exclude those points from likelihood calculation
             if 'scale_by_eidx_time' in vars(protocol):
                 for scale_obs in protocol.scale_by_eidx_time.keys():
-                    e_idx = protocol.scale_by_eidx_time[scale_obs][0]  # expt index
-                    t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs][1])  # time pt index
+                    e_idx = protocol.scale_by_eidx_time[scale_obs]['eidx']  # expt index
+                    t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs]['time'])  # time pt index
                     self.tspan_masks[-1][scale_obs][e_idx][t_idx] = False
 
         # create the list of parameters to be sampled and save their indices

@@ -20,7 +20,7 @@ if __name__ == '__main__':
     from SIM_PROTOCOLS.sim_protocols import SequentialInjections
 
     solver = ScipyOdeSimulator(model)
-    tumor_injection = SequentialInjections(solver, t_equil=500, perturb_time_amount={'Tumor()': (0, 1)})
+    tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor()', 1)})
     custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
     no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC',
                  'ALLEE_ON', 'A']
@@ -72,11 +72,11 @@ if __name__ == '__main__':
     import glob
     import os
     # get the existing PyDREAM output files
-    path = '../TEMP' #os.getcwd()  # path to where PyDREAM generated files are - default is current working directory
+    path = os.getcwd()  # path to where PyDREAM generated files are - default is current working directory
     logps_files = glob.glob(os.path.join(path, 'dreamzs*logps*'))  # need to pass ALL 'logps' files
     samples_files = glob.glob(os.path.join(path, 'dreamzs*params*'))  # need to pass ALL 'params' files
     # create the ParameterCalibration object
-    exp_data_file = '../DATA/TIBD_PopD_Mouse_Data.csv'
+    exp_data_file = os.path.join(path, 'TIBD_PopD_Data.csv')
     calibrator = ParameterCalibration(model,
                                       exp_data_file,
                                       tumor_injection,

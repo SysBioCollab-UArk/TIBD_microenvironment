@@ -1,5 +1,7 @@
+import numpy as np
 from param_calibration import SimulationProtocol
 from util import *
+from operator import truediv
 
 
 def validate_time_perturb_value(time_perturb_value):
@@ -146,10 +148,14 @@ class ParallelExperiments(SimulationProtocol):
             self.sim_protocols.append(SequentialInjections(solver, t_equil, tpv))
         # dict with observables as keys and tuples with experiment index and times of data points to scale by
         self.scale_by_eidx_time = {} if scale_by_eidx_time is None else scale_by_eidx_time
-        # Example 1: Scale 'pSmad23' values by value of 'pSmad23' in expt 0 at t=14
-        #            scale_by_eidx_time = {'pSmad23': (0, 14)}
-        # Example 2: Scale 'ps3N' and 'ps3C' values by value of 'ps3N' in expt 0 at t=7200
-        #            scale_by_eidx_time = {'ps3N': (0, 7200, ['ps3C'])}
+        # Example 1: Divide 'pSmad23' values by value of 'pSmad23' in expt 0 at t=14
+        #            scale_by_eidx_time = {'pSmad23': {'eidx': 0, 'time': 14}}
+        # Example 2: Divide 'ps3N' and 'ps3C' values by value of 'ps3N' in expt 0 at t=7200
+        #            scale_by_eidx_time = {'ps3N': {'eidx': 0, 'time': 7200, 'other_obs': ['ps3C']}}
+        # Example 3: Divide 'Tumor_tot' values by value of 'Tumor_tot' in expt 0 at t=14 and set equal to max of that
+        #            value and a user-defined threshold
+        #            scale_by_eidx_time = {'Tumor_tot': {'eidx': 0, 'time': 14,
+        #                                  'scale_func': lambda val, scale: max(val / scale, 0.5)}}}
 
     def run(self, tspan, param_values):
         # run simulations
@@ -158,14 +164,19 @@ class ParallelExperiments(SimulationProtocol):
             output.append(protocol.run(tspan=tspan, param_values=param_values.copy()))
         # scale output arrays
         for obs in self.scale_by_eidx_time.keys():
-            e_idx = self.scale_by_eidx_time[obs][0]  # expt index
-            t_idx = find_closest_index(tspan, self.scale_by_eidx_time[obs][1])  # time pt index
+            e_idx = self.scale_by_eidx_time[obs]['eidx'] # expt index
+            t_idx = find_closest_index(tspan, self.scale_by_eidx_time[obs]['time']) # time pt index
             scale_val = output[e_idx][obs][t_idx]  # value to scale by
             # check if there are other observables to scale by this value
-            other_obs = [] if len(self.scale_by_eidx_time[obs]) < 3 else list(self.scale_by_eidx_time[obs][2])
+            other_obs = self.scale_by_eidx_time[obs].get('other_obs', [])
+            # get scaling function to use (default is truediv)
+            scale_func = self.scale_by_eidx_time[obs].get('scale_func', truediv)
             for out in output:
                 for o in [obs] + other_obs:
-                    out[o] /= scale_val
+                    try:  # Try to apply the scaling function to the entire output array
+                        out[o] = scale_func(out[o], scale_val)
+                    except ValueError:  # if that doesn't work, apply it element-by-element
+                        out[o] = np.array([scale_func(x, scale_val) for x in out[o]])
         # concatenate output arrays
         output = np.concatenate(output)
 
@@ -213,25 +224,33 @@ if __name__ == "__main__":
     # Experiment B
     time_perturb_value = [{0: ('Tumor()', 1)},
                           {0: ('Tumor()', 1), 6: ('Bisphos()', 1)}]
-    scale_by_eidx_time = {'Tumor_tot': (0, 14)}  # scale by output at t=14 in expt 0
+    # scale by output at t=14 in expt 0
+    threshold = np.mean([d['average'] for d in data if d['observable'] == 'Tumor_tot' and
+                         d['alt_expt_id'] == 'Johnson2011 (ZA-Tumor)' and d['time'] in [14, 21]])
+    print('detection threshold:', threshold)
+    scale_by_eidx_time = \
+        {'Tumor_tot': {'eidx': 0, 'time': 14, 'scale_func': lambda value, scale: max(value / scale, threshold)}}
     multi_exp_injection = ParallelExperiments(sim, t_equil=500, time_perturb_value=time_perturb_value,
                                               scale_by_eidx_time=scale_by_eidx_time)
 
-    tspan = np.array([0, 6, 7, 14, 21, 28])
+    # tspan = np.array([0, 6, 7, 14, 21, 28])
+    tspan = np.linspace(0, 28, 281)
     result = multi_exp_injection.run(tspan=tspan, param_values=sim.param_values[0])
 
     # Experiment C
     # bisphos_injection = SequentialInjections(sim, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
 
-    tspan_mask = {
+    '''tspan_mask = {
         'Bone_tot': [[True, False, True, True, True, True], [True, True, True, True, True, True]],
         'Tumor_tot': [[False, False, False, True, True, True], [False, False, False, True, True, True]],
-    }
+    }'''
 
     for obs in observables:
         plt.figure(obs)
         colors = [line.get_color() for i, line in enumerate(plt.gca().get_lines()) if i % 3 == 0]
-        for i, yvals in enumerate(result[obs].reshape(len(tspan_mask[obs]), -1)):
-            plt.plot(tspan[tspan_mask[obs][i]], yvals[tspan_mask[obs][i]], lw=2, color=colors[i])
+        # for i, yvals in enumerate(result[obs].reshape(len(tspan_mask[obs]), -1)):
+        #     plt.plot(tspan[tspan_mask[obs][i]], yvals[tspan_mask[obs][i]], lw=2, color=colors[i])
+        for i, yvals in enumerate(result[obs].reshape(-1, len(tspan))):
+            plt.plot(tspan, yvals, lw=2, color=colors[i])
 
     plt.show()
