@@ -31,7 +31,6 @@ multi_exp_injection = ParallelExperiments(solver, t_equil=500, time_perturb_valu
 # Experiment C
 bisphos_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
 
-
 custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
 no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC',
              'ALLEE_ON', 'A', 'Bisphos_0']
