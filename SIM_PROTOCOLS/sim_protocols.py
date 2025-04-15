@@ -54,7 +54,7 @@ def validate_time_perturb_value(time_perturb_value):
                 raise ValueError(f"Invalid value {value} for '{perturb_name}' at time {time}: Must be a number " +
                                  "(int or float).")
 
-    return time_perturb_value  # ✅ Return the modified dictionary
+    return time_perturb_value  # Return the modified dictionary
 
 
 class SequentialInjections(SimulationProtocol):
@@ -101,8 +101,8 @@ class SequentialInjections(SimulationProtocol):
         output = []
         pert_time_last = np.inf
         for i, pert_time in enumerate(sorted_perturb_times):
-            # if time <= tspan[0], don't run a simulation
-            if pert_time > tspan[0] or tspan[0] > pert_time > pert_time_last:  # run a simulation
+            # Only run a simulation if pert_time is > tspan[0] OR pert_time > pert_time_last AND <= tspan[0]
+            if pert_time > tspan[0] or tspan[0] >= pert_time > pert_time_last:  # run a simulation
                 if i == 0:  # run a simulation with no perturbation
                     tspan_i = [t for t in tspan if t < pert_time] + [pert_time]
                 else:
