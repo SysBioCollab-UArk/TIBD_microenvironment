@@ -6,6 +6,13 @@ from collections.abc import Iterable
 from math import isclose
 
 
+def is_in_array(x, arr, rel_tol=1e-9):
+    for a in arr:
+        if isclose(x, a, rel_tol=rel_tol):
+            return True
+    return False
+
+
 def find_exact_index(tspan, target, rel_tol=1e-9):
     """Find the index of an exact floating-point match in a list.
 

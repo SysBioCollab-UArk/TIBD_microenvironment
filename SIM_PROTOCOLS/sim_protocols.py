@@ -71,14 +71,21 @@ class SequentialInjections(SimulationProtocol):
 
     def run(self, tspan, param_values):
 
+
         def save_output():
             if len(output) == 0:
                 # only keep output points for t >= tspan[0]
-                idx_keep = [idx for idx in range(len(tspan_i)) if tspan_i[idx] >= tspan[0]]
-                return sim_output.all[idx_keep]
-            else:
-                # remove first output point, since time of perturbation is included in last tspan, if it's there
-                return np.append(output, sim_output.all[1:])
+                return_array = []
+                for idx in range(len(tspan_i)):
+                    if tspan_i[idx] >= tspan[0]:
+                        return_array = sim_output.all[idx:]
+                        break
+            else:  # append to existing output
+                # remove first output point, since perturbation time is included in last tspan, if it's there
+                return_array = np.append(output, sim_output.all[1:])
+            # if last output point isn't in this tspan, remove it
+            return return_array if is_in_array(tspan_i[-1], tspan) else return_array[:-1]
+
 
         if len(self.time_perturb_value.keys()) == 0:  # just do the default simulation protocol
             return super().run(tspan, param_values)
@@ -98,7 +105,7 @@ class SequentialInjections(SimulationProtocol):
             # set initials for next iteration
             initials = self.solver.initials[0]
         # sort drug treatments by time of application and loop over them
-        output = []
+        output =[]
         pert_time_last = np.inf
         for i, pert_time in enumerate(sorted_perturb_times):
             # Only run a simulation if pert_time is > tspan[0] OR pert_time > pert_time_last AND <= tspan[0]
