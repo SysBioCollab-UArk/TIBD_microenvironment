@@ -103,9 +103,9 @@ class SequentialInjections(SimulationProtocol):
                 return out.all
         else:
             # set initials for next iteration
-            initials = self.solver.initials[0]
+            initials = [init for init in self.solver.initials[0]]
         # sort drug treatments by time of application and loop over them
-        output =[]
+        output = []
         pert_time_last = np.inf
         for i, pert_time in enumerate(sorted_perturb_times):
             # Only run a simulation if pert_time is > tspan[0] OR pert_time > pert_time_last AND <= tspan[0]
@@ -234,6 +234,7 @@ if __name__ == "__main__":
     # scale by output at t=14 in expt 0
     threshold = np.mean([d['average'] for d in data if d['observable'] == 'Tumor_tot' and
                          d['alt_expt_id'] == 'Johnson2011 (ZA-Tumor)' and d['time'] in [14, 21]])
+    # threshold = 0
     print('detection threshold:', threshold)
     scale_by_eidx_time = \
         {'Tumor_tot': {'eidx': 0, 'time': 14, 'scale_func': lambda value, scale: max(value / scale, threshold)}}
@@ -259,5 +260,6 @@ if __name__ == "__main__":
         #     plt.plot(tspan[tspan_mask[obs][i]], yvals[tspan_mask[obs][i]], lw=2, color=colors[i])
         for i, yvals in enumerate(result[obs].reshape(-1, len(tspan))):
             plt.plot(tspan, yvals, lw=2, color=colors[i])
+        plt.ylim(bottom=-0.1)
 
     plt.show()
