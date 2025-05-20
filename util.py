@@ -129,6 +129,7 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
         sim_data = np.genfromtxt(sim_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
         print('sim_data:', sim_data.dtype.names)
 
+        suffix = []
         for expt in [key for key in expt_doses.keys() if key not in ['xlabel', 'title']]:
             label = label_dict.get(expt, expt)
             conc = expt_doses[expt]
@@ -150,6 +151,7 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
             yunits = np.unique([d['amount_units'] for d in expt_data if d['expt_id'] == expt])
             if len(yobs) > 1 or len(yunits) > 1:
                 raise Exception("More than one observable or unit type for experiment '%s'" % expt)
+            suffix.append(('%s_%s' % (expt, yobs[0])).split('_'))  # for the filename
             plt.ylabel('%s (%s)' % (label_dict.get(yobs[0], yobs[0]), yunits[0]), fontsize=16)
             plt.xticks(fontsize=16)
             plt.yticks(fontsize=16)
@@ -171,7 +173,10 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
             new_labels += [labels[:n_sims][n], labels[n_sims:][n]]
         plt.legend(new_handles, new_labels, loc='best', fontsize=12)
 
-        plt.savefig(os.path.join(path, 'fig_PyDREAM_DRC_%s_%s' % (expt, yobs[0])))
+        filename = 'fig_PyDREAM_DRC'
+        for i in range(np.array(suffix).shape[1]):
+            filename += '_' + '_'.join(np.unique([x[i] for x in suffix]))
+        plt.savefig(os.path.join(path, filename))
 
     if show_plot:
         plt.show()
