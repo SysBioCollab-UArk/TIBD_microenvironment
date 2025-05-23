@@ -75,7 +75,7 @@ class SequentialInjections(SimulationProtocol):
         def save_output():
             if len(output) == 0:
                 # only keep output points for t >= tspan[0]
-                return_array = []
+                return_array = sim_output.all[:0]  # by default, return an empty record-style numpy array
                 for idx in range(len(tspan_i)):
                     if tspan_i[idx] >= tspan[0]:
                         return_array = sim_output.all[idx:]
