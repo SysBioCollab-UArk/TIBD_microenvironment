@@ -98,9 +98,11 @@ class SequentialInjections(SimulationProtocol):
             out = self.solver.run(tspan=np.linspace(-self.t_equil + min_tsim, min_tsim, 2),
                                   param_values=param_values)
             initials = out.species[-1]
-            # if there are NaNs in the initials, just return the current output
+            # if there are NaNs in the initials, quit and return an array of NaNs for all time points in tspan
             if np.any(np.isnan(initials)):
-                return out.all
+                output = np.array([tuple([np.nan for _ in out.all.dtype.names]) for _ in tspan],
+                                  dtype=out.all.dtype)
+                return output  # out.all
         else:
             # set initials for next iteration
             initials = [init for init in self.solver.initials[0]]
@@ -119,8 +121,10 @@ class SequentialInjections(SimulationProtocol):
                 output = save_output()
                 # initials for next iteration
                 initials = sim_output.species[-1]
-                # if there are NaNs in the initials, just return the current output
+                # if there are NaNs in the initials, quit and return an array of NaNs for all time points in tspan
                 if np.any(np.isnan(initials)):
+                    output = np.array([tuple([np.nan for _ in output.dtype.names]) for _ in tspan],
+                                          dtype=output.dtype)
                     return output
             # save the perturbation time for the next iteration
             pert_time_last = pert_time
