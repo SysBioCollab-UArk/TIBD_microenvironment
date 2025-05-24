@@ -105,6 +105,20 @@ def round_up_nice(x):
     return nice_fraction * 10 ** exponent
 
 
+# Helper function for getting a good x-axis lower limit for dose-response plots
+def round_down_nice(x):
+    if x <= 0:
+        return 0
+    exponent = np.floor(np.log10(x))
+    fraction = x / 10 ** exponent
+    nice_fraction = np.select(
+        [fraction < 2, fraction < 5, fraction < 10],
+        [1, 2, 5],
+        default=10
+    )
+    return nice_fraction * 10 ** exponent
+
+
 def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=None, show_plot=True):
 
     dirs = [directory] if isinstance(directory, str) else directory
@@ -155,7 +169,10 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
             plt.ylabel('%s (%s)' % (label_dict.get(yobs[0], yobs[0]), yunits[0]), fontsize=16)
             plt.xticks(fontsize=16)
             plt.yticks(fontsize=16)
-            plt.xlim(right=round_up_nice(max(conc)))
+            xmin = round_down_nice(min(conc))
+            xmax = round_up_nice(max(conc))
+            buffer = 0.05 * (xmax - xmin)  # 5% buffer
+            plt.xlim(left=xmin-buffer, right=xmax+buffer)
             plt.ylim(bottom=0)
             plt.legend(loc='best')
 
