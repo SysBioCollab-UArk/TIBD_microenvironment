@@ -122,8 +122,11 @@ def round_down_nice(x):
 def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=None, show_plot=True):
 
     dirs = [directory] if isinstance(directory, str) else directory
-    for dir, expt_doses in zip(dirs, expts_doses):
-        plt.figure(constrained_layout=True, figsize=(6.4 * 0.7, 4.8 * 0.9))
+    for dir, expt_doses_list in zip(dirs, expts_doses):
+        print('Directory:', dir)
+
+        if isinstance(expt_doses_list, dict):
+            expt_doses_list = [expt_doses_list]
 
         # set the 'path' variable to the directory where the SIM_DATA.csv, run_<...>_pydream.py, and expt data file are
         path = os.path.join(basepath, dir)
@@ -143,57 +146,67 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
         sim_data = np.genfromtxt(sim_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
         print('sim_data:', sim_data.dtype.names)
 
-        suffix = []
-        for expt in [key for key in expt_doses.keys() if key not in ['xlabel', 'title']]:
-            label = label_dict.get(expt, expt)
-            conc = expt_doses[expt]
-            # sim data
-            yval_min = np.array([d['yval_min'] for d in sim_data if d['sim_id'] == expt])
-            yval_max = np.array([d['yval_max'] for d in sim_data if d['sim_id'] == expt])
-            legend_label = 'simulation' if label is None else '%s (sim)' % label
-            p = plt.plot(conc, (yval_min + yval_max)/2, ls='--', label=legend_label)
-            plt.fill_between(conc, yval_min, yval_max, alpha=0.25, color=p[0].get_color(), label='x')
-            # expt data
-            avg = np.array([d['average'] for d in expt_data if d['expt_id'] == expt])
-            stderr = np.array([d['stderr'] for d in expt_data if d['expt_id'] == expt])
-            legend_label = 'experiment' if label is None else '%s (expt)' % label
-            plt.errorbar(conc, avg, yerr=stderr, fmt='o', ms=8, capsize=6, color=p[0].get_color(), label=legend_label)
+        for expt_doses in expt_doses_list:
+            plt.figure(constrained_layout=True, figsize=(6.4 * 0.7, 4.8 * 0.9))
+            suffix = []
+            min_conc = np.inf
+            max_conc = 0
+            for expt in [key for key in expt_doses.keys() if key not in ['xlabel', 'title']]:
+                label = label_dict.get(expt, expt)
+                conc = expt_doses[expt]
+                if min(conc) < min_conc:
+                    min_conc = min(conc)
+                if max(conc) > max_conc:
+                    max_conc = max(conc)
+                # sim data
+                yval_min = np.array([d['yval_min'] for d in sim_data if d['sim_id'] == expt])
+                yval_max = np.array([d['yval_max'] for d in sim_data if d['sim_id'] == expt])
+                legend_label = 'simulation' if label is None else '%s (sim)' % label
+                p = plt.plot(conc, (yval_min + yval_max)/2, ls='--', label=legend_label)
+                plt.fill_between(conc, yval_min, yval_max, alpha=0.25, color=p[0].get_color(), label='x')
+                # expt data
+                avg = np.array([d['average'] for d in expt_data if d['expt_id'] == expt])
+                stderr = np.array([d['stderr'] for d in expt_data if d['expt_id'] == expt])
+                legend_label = 'experiment' if label is None else '%s (expt)' % label
+                plt.errorbar(conc, avg, yerr=stderr, fmt='o', ms=8, capsize=6, color=p[0].get_color(), label=legend_label)
 
-            plt.title(expt_doses.get('title', None), fontsize=16, fontweight='bold')
-            plt.xlabel(expt_doses.get('xlabel'), fontsize=16)
-            yobs = np.unique([d['observable'] for d in expt_data if d['expt_id'] == expt])
-            yunits = np.unique([d['amount_units'] for d in expt_data if d['expt_id'] == expt])
-            if len(yobs) > 1 or len(yunits) > 1:
-                raise Exception("More than one observable or unit type for experiment '%s'" % expt)
-            suffix.append(('%s_%s' % (expt, yobs[0])).split('_'))  # for the filename
-            plt.ylabel('%s (%s)' % (label_dict.get(yobs[0], yobs[0]), yunits[0]), fontsize=16)
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-            xmin = round_down_nice(min(conc))
-            xmax = round_up_nice(max(conc))
+                plt.title(expt_doses.get('title', None), fontsize=16, fontweight='bold')
+                plt.xlabel(expt_doses.get('xlabel'), fontsize=16)
+                yobs = np.unique([d['observable'] for d in expt_data if d['expt_id'] == expt])
+                yunits = np.unique([d['amount_units'] for d in expt_data if d['expt_id'] == expt])
+                if len(yobs) > 1 or len(yunits) > 1:
+                    raise Exception("More than one observable or unit type for experiment '%s'" % expt)
+                suffix.append(('%s_%s' % (expt, yobs[0])).split('_'))  # for the filename
+                plt.ylabel('%s (%s)' % (label_dict.get(yobs[0], yobs[0]), yunits[0]), fontsize=16)
+                plt.xticks(fontsize=16)
+                plt.yticks(fontsize=16)
+                plt.ylim(bottom=0)
+                plt.legend(loc='best')
+
+            # adjust x-limits
+            xmin = round_down_nice(min_conc)
+            xmax = round_up_nice(max_conc)
             buffer = 0.05 * (xmax - xmin)  # 5% buffer
-            plt.xlim(left=xmin-buffer, right=xmax+buffer)
-            plt.ylim(bottom=0)
-            plt.legend(loc='best')
+            plt.xlim(left=xmin - buffer, right=xmax + buffer)
 
-        # merge line and fill_between legend handles
-        handles, labels = plt.gca().get_legend_handles_labels()
-        n_sims = len([label for label in labels if 'sim' in label])
-        handles = ([(handles[n], handles[n + 1]) for n in range(0, n_sims * 2 - 1, n_sims)] +
-                   list(handles[n_sims * 2:]))
-        labels = [labels[n] for n in range(0, n_sims * 2 - 1, n_sims)] + list(labels[n_sims * 2:])
-        # reorder handles and labels
-        new_handles = []
-        new_labels = []
-        for n in range(n_sims):
-            new_handles += [handles[:n_sims][n], handles[n_sims:][n]]
-            new_labels += [labels[:n_sims][n], labels[n_sims:][n]]
-        plt.legend(new_handles, new_labels, loc='best', fontsize=12)
+            # merge line and fill_between legend handles
+            handles, labels = plt.gca().get_legend_handles_labels()
+            n_sims = len([label for label in labels if 'sim' in label])
+            handles = ([(handles[n], handles[n + 1]) for n in range(0, n_sims * 2 - 1, 2)] +
+                       list(handles[n_sims * 2:]))
+            labels = [labels[n] for n in range(0, n_sims * 2 - 1, 2)] + list(labels[n_sims * 2:])
+            # reorder handles and labels
+            new_handles = []
+            new_labels = []
+            for n in range(n_sims):
+                new_handles += [handles[:n_sims][n], handles[n_sims:][n]]
+                new_labels += [labels[:n_sims][n], labels[n_sims:][n]]
+            plt.legend(new_handles, new_labels, loc='best', fontsize=12)
 
-        filename = 'fig_PyDREAM_DRC'
-        for i in range(np.array(suffix).shape[1]):
-            filename += '_' + '_'.join(np.unique([x[i] for x in suffix]))
-        plt.savefig(os.path.join(path, filename))
+            filename = 'fig_PyDREAM_DRC'
+            for i in range(np.array(suffix).shape[1]):
+                filename += '_' + '_'.join(np.unique([x[i] for x in suffix]))
+            plt.savefig(os.path.join(path, filename))
 
     if show_plot:
         plt.show()
