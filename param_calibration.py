@@ -172,8 +172,8 @@ class ParameterCalibration(object):
         return sum(self.logp_data)
 
     def run(self, nchains=3, niterations=50000, start=None, restart=False, verbose=True, adapt_gamma=True,
-            history_thin=1, gamma_levels=4, multitry=False, obs_labels=None, plot_results=True, plot_ll_args=None,
-            plot_pd_args=None, plot_tc_args=None):
+            history_thin=1, gamma_levels=4, multitry=False, timeout=5, obs_labels=None, plot_results=True,
+            plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
 
         sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
                                            likelihood=self.likelihood,
@@ -186,6 +186,7 @@ class ParameterCalibration(object):
                                            history_thin=history_thin,
                                            gamma_levels=gamma_levels,
                                            multitry=multitry,
+                                           timeout=timeout,
                                            model_name='dreamzs_%dchain' % nchains)
         total_iterations = niterations
         burnin = int(total_iterations / 2)
