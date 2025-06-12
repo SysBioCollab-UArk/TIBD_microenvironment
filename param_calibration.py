@@ -412,6 +412,7 @@ class ParameterCalibration(object):
         if cutoff is not None:
             plt.axhline(log_ps_mean - cutoff * np.sqrt(log_ps_var), color='k', ls='--', lw=2)
         plt.ylim(bottom=bottom, top=top)
+        plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
         plt.xlabel('iteration')
         plt.ylabel('log-likelihood')
         plt.legend(loc=0)
