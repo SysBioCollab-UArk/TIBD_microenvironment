@@ -121,6 +121,9 @@ def round_down_nice(x):
 
 def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=None, show_plot=True):
 
+    if label_dict is None:
+        label_dict = {}
+
     dirs = [directory] if isinstance(directory, str) else directory
     for dir, expt_doses_list in zip(dirs, expts_doses):
         print('Directory:', dir)
@@ -168,7 +171,8 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
                 avg = np.array([d['average'] for d in expt_data if d['expt_id'] == expt])
                 stderr = np.array([d['stderr'] for d in expt_data if d['expt_id'] == expt])
                 legend_label = 'experiment' if label is None else '%s (expt)' % label
-                plt.errorbar(conc, avg, yerr=stderr, fmt='o', ms=8, capsize=6, color=p[0].get_color(), label=legend_label)
+                plt.errorbar(conc, avg, yerr=stderr, fmt='o', ms=8, capsize=6, color=p[0].get_color(),
+                             label=legend_label)
 
                 plt.title(expt_doses.get('title', None), fontsize=16, fontweight='bold')
                 plt.xlabel(expt_doses.get('xlabel'), fontsize=16)
@@ -177,7 +181,8 @@ def plot_drc(basepath, directory, run_pydream_filename, expts_doses, label_dict=
                 if len(yobs) > 1 or len(yunits) > 1:
                     raise Exception("More than one observable or unit type for experiment '%s'" % expt)
                 suffix.append(('%s_%s' % (expt, yobs[0])).split('_'))  # for the filename
-                plt.ylabel('%s (%s)' % (label_dict.get(yobs[0], yobs[0]), yunits[0]), fontsize=16)
+                plt.ylabel('%s (%s)' % (label_dict.get(yobs[0], yobs[0]), label_dict.get(yunits[0], yunits[0])),
+                           fontsize=16)
                 plt.xticks(fontsize=16)
                 plt.yticks(fontsize=16)
                 plt.ylim(bottom=0)
