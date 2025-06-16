@@ -2,6 +2,7 @@ import numpy as np
 from param_calibration import SimulationProtocol
 from util import *
 from operator import truediv
+from pandas.api.types import is_list_like
 
 
 def validate_time_perturb_value(time_perturb_value):
