@@ -7,7 +7,7 @@ from matplotlib.ticker import ScalarFormatter
 def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
 
     # Experimental data
-    expt_data_file = os.path.join(path, 'TIBD_PopD_Data.csv')
+    expt_data_file = os.path.join(path, 'TIBD_Johnson2011.csv')  #'TIBD_PopD_Data.csv')
     expt_data_raw = np.genfromtxt(expt_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
     print(expt_data_raw.dtype.names)
     expt_ids = list(dict.fromkeys(expt_data_raw['expt_id']))
@@ -97,7 +97,9 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
     nrows = 2
     ncols = 2
     fig, axs = plt.subplots(nrows, ncols, sharex='all', figsize=[1*6.4, 1.2*4.8], constrained_layout=True)
+    '''
     axs_tumor2 = axs[1, 1].twinx()  # 2nd y-axis for Johnson et al. (2011) tumor data
+    '''
     print(sim_expt_ids)
     xticks = [0, 7, 14, 21, 28] \
         if any('Johnson' in sim_expt_id for sim_expt_id in sim_expt_ids) \
@@ -110,9 +112,11 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
         axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
         for sim_expt_id in sim_expt_ids:
             # plot Johnson et al. (2011) tumor data on 2nd y-axis
-            ax = axs_tumor2 if obs_name == 'Tumor_tot' and \
+            '''ax = axs_tumor2 if obs_name == 'Tumor_tot' and \
                                (sim_expt_id == 'Johnson2011 (PBS-Tumor)' or sim_expt_id == 'Johnson2011 (ZA-Tumor)') \
-                else axs[row, col]
+                else axs[row, col]'''
+            ax = axs[row, col]
+            #####
             # check if experimental data exists
             expt_time = [] if sim_expt_id not in expt_data.keys() \
                 else [d['time'] for d in expt_data[sim_expt_id] if d['observable'] == obs_name]
@@ -124,14 +128,14 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
                 ax.fill_between(sim_time, yval_min, yval_max, alpha=0.25, label=legend_labels[sim_expt_id],
                                            color=colors[sim_expt_id])
                 # add an arrow pointing to the right for the Johnson et al. (PBS-Tumor) Day 14 data point
-                if obs_name == 'Tumor_tot' and sim_expt_id == 'Johnson2011 (PBS-Tumor)':
+                '''if obs_name == 'Tumor_tot' and sim_expt_id == 'Johnson2011 (PBS-Tumor)':
                     from matplotlib.patches import FancyArrowPatch
                     # Shaft (dotted line)
                     ax.plot([14, ax.get_xlim()[-1]], [1, 1], linestyle='--', color=colors[sim_expt_id], lw=1.5)
                     # Head (small arrow overlay)
                     arrow = FancyArrowPatch(posA=(ax.get_xlim()[-1] - 0.5, 1), posB=(ax.get_xlim()[-1], 1),
                                             arrowstyle='->', color=colors[sim_expt_id], lw=1.5, mutation_scale=10)
-                    ax.add_patch(arrow)
+                    ax.add_patch(arrow)'''
             # plot experimental data
             if len(expt_time) > 0:
                 average = [d['average'] for d in expt_data[sim_expt_id] if d['observable'] == obs_name]
@@ -139,7 +143,10 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
                 ax.errorbar(expt_time, average, yerr=stderr, capsize=6, fmt='o', ms=8, color=colors[sim_expt_id])
         if row == nrows - 1:
             axs[row, col].set_xlabel('Time (day)', fontsize=14)
+        '''
         ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
+        '''
+        ylabel = 'Concentration (fM)'
         axs[row, col].set_ylabel(ylabel, fontsize=14)
         axs[row, col].set_xticks(xticks, xticks)
         axs[row, col].set_xlim(right=xticks[-1] + 2)
@@ -152,10 +159,10 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
     # adjust axis formats
     axs[1, 1].yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
     axs[1, 1].ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-    axs_tumor2.set_ylim(bottom=-0.1, top=axs_tumor2.get_ylim()[1])
+    '''axs_tumor2.set_ylim(bottom=-0.1, top=axs_tumor2.get_ylim()[1])
     axs_tumor2.set_ylabel('Rel. Concentration', fontsize=14, rotation=-90, labelpad=16, color=color)
     axs_tumor2.tick_params(axis='y', which='major', labelsize=14, color=color)
-    axs_tumor2.set_yticks([0, 1, 2, 3, 4], [0, 1, 2, 3, 4], color=color)
+    axs_tumor2.set_yticks([0, 1, 2, 3, 4], [0, 1, 2, 3, 4], color=color)'''
     # put the legend at the bottom of the figure
     handles, labels = axs[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, ncols=2, bbox_to_anchor=(0.5, 0.06), loc='center', fontsize=12, columnspacing=1)
@@ -171,9 +178,21 @@ if __name__ == '__main__':
     base_path = os.path.join('MODELS', 'SAVE', 'Leonard')
 
     directories = [
-        'A_Errors_Orig_ALL_NoZeroPt',
-        'B_Errors_5pct_ALL_NoZeroPt',
-        'C_Errors_Orig_TUMOR_5pct_OTHERS_WithZeroPt'
+        # 'A_Errors_Orig_ALL',
+        # 'B_Errors_5pct_ALL',
+        # 'C_Errors_Orig_TUMOR_5pct_OTHERS_WithZeroPt',
+        # 'D_Errors_Orig_TUMOR_5pct_OTHERS',
+        # 'E_Errors_Orig_TUMOR_14_21_10pct_TUMOR_28_5pct_OTHERS',
+        # 'G_Errors_Orig_TUMOR_5pct_OTHERS_Bkgrd_0_to_28',
+        # 'H_Errors_Orig_TUMOR_14_21_10pct_TUMOR_28_5pct_OTHERS_Bkgrd_0_to_28',
+        # 'Johnson2011_PBS_A_Errors_Orig_ALL_Bkgrd_0_to_28',
+        # 'Johnson2011_PBS_B_Errors_10pct_TUMOR_28_Orig_OTHERS_Bkgrd_0_to_28',
+        # 'Johnson2011_PBS_C_Errors_5pct_BONE_10pct_TUMOR_28_Orig_TUMOR_14_21_Bkgrd_0_to_28',
+        # 'Johnson2011_PBS_ZA_A_Errors_Orig_ALL_Bkgrd_0_to_28',
+        # 'Johnson2011_PBS_ZA_B_Errors_10pct_TUMOR_28_Orig_OTHERS_Bkgrd_0_to_28' #,
+        # 'Johnson2011_PBS_ZA_C_Errors_5pct_BONE_10pct_TUMOR_28_Orig_TUMOR_14_21_Bkgrd_0_to_28',
+        # 'Johnson2011_PBS_ZA',
+        'Johnson2011_PBS_ZA_10pct_15pct'
     ]
 
     A = 'Bennett2024'
@@ -184,10 +203,14 @@ if __name__ == '__main__':
     for d in directories:
         path = os.path.join(base_path, d)
 
-        make_fig(path, [A, B, C, D], 'Figure_3', expt_data_only=True)
-        make_fig(path, [A, B], 'Figure_4', expt_data_only=False)
+        # make_fig(path, [A, B, C, D], 'Figure_3', expt_data_only=True)
+        # make_fig(path, [A, B], 'Figure_4', expt_data_only=False)
         # make_fig(path, [A, '3'], 'Figure_5', expt_data_only=False)
         # make_fig(path, [C, '3'], 'Figure_ZA', expt_data_only=False)
         make_fig(path, [B, C], 'Figure_B_C', expt_data_only=False)
+        # make_fig(path, [B], 'Figure_B', expt_data_only=False)
+
+        # ax = plt.gca()
+        # ax.set_ylim(top=5)
 
     plt.show()
