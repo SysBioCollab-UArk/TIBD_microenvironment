@@ -5,6 +5,20 @@ import os
 from math import isclose
 import importlib
 import pandas as pd
+import math
+import warnings
+
+
+# Helper function for getting the optimal number of columns for a multi-plot figure
+def get_fig_ncols(ndims):
+    if not isinstance(ndims, int) or ndims <= 0:
+        raise ValueError("'ndims' must be a positive integer")
+    r1 = round(math.sqrt(ndims))  # round() returns an int
+    r2 = math.ceil(math.sqrt(ndims))  # math.ceil() also returns an int
+    while r1 * r2 >= ndims:
+        r1 -= 1
+        r2 += 1
+    return min(r1 + 1, r2 - 1)  # the smaller of the two integers is the # of columns
 
 
 def is_in_array(x, arr, rel_tol=1e-9):
@@ -318,3 +332,14 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
 
     if show_plot:
         plt.show()
+
+
+def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=None, tc_ids=None, label_dict=None,
+                      show_plot=True):
+    if expt_doses is not None:
+        plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict, show_plot)
+    if tc_ids is not None:
+        plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict, show_plot)
+
+    if expt_doses is None and tc_ids is None:
+        warnings.warn("No drug doses or timecourse IDs were passed to `plot_from_simdata`")
