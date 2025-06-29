@@ -12,7 +12,7 @@ import os
 import csv
 import multiprocessing
 import math
-from util import find_closest_index
+from util import find_closest_index, get_fig_ncols
 
 
 # Function for timeout option
@@ -236,8 +236,9 @@ class ParameterCalibration(object):
             self.create_figures(logps_files, samples_files, obs_labels=obs_labels, plot_ll_args=plot_ll_args,
                                 plot_pd_args=plot_pd_args, plot_tc_args=plot_tc_args)
 
-    def create_figures(self, logps_files, samples_files, obs_labels=None, show_plots=False, plot_ll_args=None,
-                       plot_pd_args=None, plot_tc_args=None, which_plots='all', max_time_points=1000):
+    def create_figures(self, logps_files, samples_files, obs_labels=None, show_plots=False, save_plots=True,
+                       plot_ll_args=None, plot_pd_args=None, plot_tc_args=None, which_plots='all',
+                       max_time_points=1000):
 
         # which plots should we create? (NOTE: user can pass an integer too)
         which_plots = \
@@ -254,7 +255,7 @@ class ParameterCalibration(object):
 
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
-        _plot_pd_args = {'labels': None, 'groups': None, 'save_plot': None, 'sharex': 'all', 'sharey': 'none'}
+        _plot_pd_args = {'labels': None, 'groups': None, 'sharex': 'all', 'sharey': 'none'}
         _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
         if plot_ll_args is not None:
             _plot_ll_args.update(plot_ll_args)
@@ -269,7 +270,8 @@ class ParameterCalibration(object):
 
         if which_plots > 0:
             print('Plotting log-likelihoods')
-            return_objects[0] = self.plot_log_likelihood(logps_files, **_plot_ll_args)
+            return_objects[0] = \
+                self.plot_log_likelihood(logps_files, show_plot=False, save_plot=save_plots, **_plot_ll_args)
 
         if which_plots > 1:
             print('Plotting parameter distributions')
@@ -307,9 +309,9 @@ class ParameterCalibration(object):
             if _plot_pd_args['groups'] is None:
                 _plot_pd_args['groups'] = param_groups
             _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
-            if _plot_pd_args['save_plot'] is None:
-                _plot_pd_args['save_plot'] = filenames
-            return_objects[1] = param_samples = self.plot_param_dist(samples_files, **_plot_pd_args)
+
+            return_objects[1] = param_samples = \
+                self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
 
         if which_plots > 2:
             print('Plotting time courses')
@@ -354,9 +356,11 @@ class ParameterCalibration(object):
                 _plot_tc_args['leg_labels'] = leg_labels
             # pop separate_plots out of the dict since it's not passed as a kwarg below
             separate_plots = _plot_tc_args.pop('separate_plots')
-            return_objects[2] = self.plot_timecourses(
-                self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs, exp_data=self.raw_data,
-                samples_idxs=self.samples_idxs, separate_plots=separate_plots, **_plot_tc_args)
+
+            return_objects[2] = \
+                self.plot_timecourses(self.model, tspans, self.sim_protocols, param_samples, self.parameter_idxs,
+                                      exp_data=self.raw_data, samples_idxs=self.samples_idxs, show_plot=False,
+                                      save_plot=save_plots, separate_plots=separate_plots, **_plot_tc_args)
 
         if show_plots and which_plots > 0:
             plt.show()
@@ -365,7 +369,7 @@ class ParameterCalibration(object):
 
 
     @staticmethod
-    def plot_log_likelihood(logps_files, cutoff=None, show_plot=False, save_plot=True):
+    def plot_log_likelihood(logps_files, show_plot=False, save_plot=True, cutoff=None, **kwargs):
 
         # get the path from the first file
         path, file = os.path.split(logps_files[0])
@@ -417,29 +421,18 @@ class ParameterCalibration(object):
         plt.ylabel('log-likelihood')
         plt.legend(loc=0)
 
+        if save_plot is not False:
+            filepath = '.' if save_plot is True else save_plot
+            filename = 'fig_PyDREAM_log_ps' + kwargs.get('file_suffix', '')
+            plt.savefig(os.path.join(filepath, filename))
+
         if show_plot:
             plt.show()
-        if save_plot is not False:
-            filename = 'fig_PyDREAM_log_ps' if save_plot is True else save_plot
-            plt.savefig(filename)
 
         return None  # this is a placeholder, in case we want to return something in the future
 
     @staticmethod
-    def plot_param_dist(sample_files, labels=None, groups=None, cutoff=None, show_plot=False, save_plot=True, **kwargs):
-
-
-        # Helper function for getting the optimal number of columns for the histogram figure
-        def get_ncols(ndims):
-            if not isinstance(ndims, int) or ndims <= 0:
-                raise ValueError("'ndims' must be a positive integer")
-            r1 = round(math.sqrt(ndims))  # round() returns an int
-            r2 = math.ceil(math.sqrt(ndims))  # math.ceil() also returns an int
-            while r1 * r2 >= ndims:
-                r1 -= 1
-                r2 += 1
-            return min(r1 + 1, r2 - 1)  # the smaller of the two integers is the # of columns
-
+    def plot_param_dist(sample_files, show_plot=False, save_plot=True, labels=None, groups=None, cutoff=None, **kwargs):
 
         # get chains and iterations from file names
         chains = []
@@ -491,7 +484,7 @@ class ParameterCalibration(object):
         for n, label, group in zip(range(len(labels)), labels, groups):
             ndims = len(group)  # number of dimensions (i.e., parameters)
             # set plot parameters
-            ncols = kwargs.get('ncols', get_ncols(ndims))
+            ncols = kwargs.get('ncols', get_fig_ncols(ndims))
             nrows = math.ceil(ndims/ncols)
             figsize = kwargs.get('figsize', (0.65 * ncols * 6.4, 0.5 * nrows * 4.8))
             labelsize = kwargs.get('labelsize', 10 * max(1, (2/5 * np.ceil(nrows / 2))))
@@ -565,21 +558,12 @@ class ParameterCalibration(object):
                 for ax in axs:
                     ax.set_xlim(x_min, x_max)
 
-        # save plots
         if save_plot is not False:
+            filepath = '.' if save_plot is True else save_plot
+            filename = 'fig_PyDREAM_histograms'
             for n, (fig, axs) in enumerate(fig_axs_list):
-                if save_plot is True:
-                    filename = 'fig_PyDREAM_histograms'
-                    suffix = '' if len(groups) == 1 else '_group_%d' % n
-                    filename += suffix
-                else:
-                    if isinstance(save_plot, str):  # a string prefix has been passed
-                        filename = save_plot
-                        suffix = '' if len(groups) == 1 else '_group_%d' % n
-                        filename += suffix
-                    else:  # the last possibility is an array of filenames
-                        filename = save_plot[n]
-                fig.savefig(filename)
+                filename += '' if len(groups) == 1 else '_group_%d' % n
+                fig.savefig(os.path.join(filepath, filename))
 
         if show_plot:
             plt.show()
@@ -620,7 +604,7 @@ class ParameterCalibration(object):
 
         # if sample indices are not provided, all parameters are used in all simulations
         if samples_idxs is None:
-            samples_idxs = [[i for i in range(len(parameter_idxs))] for sim in range(len(tspans))]
+            samples_idxs = [[i for i in range(len(parameter_idxs))] for _ in range(len(tspans))]
 
         # error check
         if len(np.unique([len(tspans), len(sim_protocols), len(observables), len(samples_idxs)])) != 1:
@@ -669,8 +653,9 @@ class ParameterCalibration(object):
         # counts = counts[:10]
         # #################
         # save simulation data, if requested
-        if save_sim_data:
-            csvfile = open("SIM_DATA.csv", 'w')
+        if save_sim_data is not False:
+            filename = 'SIM_DATA' if save_sim_data is True else save_sim_data
+            csvfile = open("%s.csv" % filename, 'w')
             csvwriter = csv.writer(csvfile, delimiter=',')
             csvwriter.writerow(['observable', 'time', 'yval_min', 'yval_max', 'sim_id'])
         # loop over simulations (experiments + perturbations)
@@ -716,7 +701,7 @@ class ParameterCalibration(object):
             for i, obs_name in enumerate(observables[n]):
                 print(obs_name)
                 figname = '%s_exp_%s' % (obs_name, str(experiments[n])) if separate_plots and n < n_experiments \
-                    else '%s_sim_%s' % (obs_name, n - n_experiments + 1) if separate_plots and n >= n_experiments \
+                    else '%s_sim_%d' % (obs_name, n - n_experiments + 1) if separate_plots and n >= n_experiments \
                     else obs_name
                 plt.figure(num=figname, constrained_layout=True)
                 # plot simulated data as a percent envelope
@@ -779,8 +764,9 @@ class ParameterCalibration(object):
                 plt.legend(loc=locs[n][i])
 
                 if save_plot is not None and separate_plots:
-                    filename = 'fig_PyDREAM_tc_%s' % figname if save_plot is True else save_plot
-                    plt.savefig(filename)
+                    filepath = '.' if save_plot is True else save_plot
+                    filename = 'fig_PyDREAM_tc_%s' % figname
+                    plt.savefig(os.path.join(filepath, filename))
 
         if save_sim_data:
             csvfile.close()
@@ -793,7 +779,7 @@ class ParameterCalibration(object):
                     # check if the observable is in the list for this experiment. if it is, reorder the legend, save the
                     # file, and break out of the loop
                     if obs_name in observables[n]:
-                        filename = 'fig_PyDREAM_tc_%s' % obs_name if save_plot is True else save_plot
+                        filename = 'fig_PyDREAM_tc_%s' % obs_name
                         # fix legend order
                         plt.figure(num=obs_name)
                         handles, labels = plt.gca().get_legend_handles_labels()
@@ -811,7 +797,8 @@ class ParameterCalibration(object):
                                 new_handles[i] = new_handles[i][0]
 
                         plt.legend(new_handles, new_labels, loc=locs[n][list(observables[n]).index(obs_name)])
-                        plt.savefig(filename)
+                        filepath = '.' if save_plot is True else save_plot
+                        plt.savefig(os.path.join(filepath, filename))
                         break
 
         if show_plot:
