@@ -3,8 +3,10 @@ from MODULES.perturbations import add_bisphosphonate_components
 from param_calibration import *
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import *
+import os
 
-exp_data_file = os.path.join('DATA', 'TIBD_PopD_Data.csv')
+this_dir = os.path.dirname(__file__)
+expt_data_file = os.path.join(this_dir, 'DATA', 'TIBD_PopD_Data.csv')
 
 add_bisphosphonate_components()
 
@@ -16,18 +18,6 @@ tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={
 # Experiment C
 tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
                                                time_perturb_value={0: ('Tumor()', 1), 6: ('Bisphos()', 1)})
-
-'''time_perturb_value = [{0: ('Tumor()', 1)},
-                      {0: ('Tumor()', 1), 6: ('Bisphos()', 1)}]
-# scale 'Tumor_tot' by value at t=14 in expt 0 (set a detection threshold)
-def divmax(value, scale):
-    threshold = 0.5675
-    return max(value / scale, threshold)
-
-scale_by_eidx_time = \
-        {'Tumor_tot': {'eidx': 0, 'time': 14, 'scale_func': divmax}}
-multi_exp_injection = ParallelExperiments(solver, t_equil=500, time_perturb_value=time_perturb_value,
-                                          scale_by_eidx_time=scale_by_eidx_time)'''
 
 # Experiment D
 bisphos_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
@@ -52,7 +42,7 @@ param_expts_map = {
 if __name__ == '__main__':
 
     calibrator = ParameterCalibration(model,
-                                      exp_data_file,
+                                      expt_data_file,
                                       [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection],
                                       priors=custom_priors,
                                       no_sample=no_sample,
