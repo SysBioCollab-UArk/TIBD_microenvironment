@@ -7,6 +7,7 @@ import importlib
 import pandas as pd
 import math
 import warnings
+import glob
 
 
 # Helper function for getting the optimal number of columns for a multi-plot figure
@@ -138,12 +139,12 @@ def get_sim_and_expt_data(path, run_pydream_filename):
     # get the path to the experimental data file referenced in the run_<...>_pydream.py file that's in the path
     exp_data_file = os.path.normpath(module.exp_data_file) if os.path.isabs(module.exp_data_file) else \
         os.path.normpath(os.path.join(path, module.exp_data_file))
-    expt_data = pd.read_csv(exp_data_file)
-    print('expt_data:', list(expt_data.columns))
+    expt_data = pd.read_csv(exp_data_file) if os.path.exists(exp_data_file) else None
+    print('expt_data:', list(expt_data.columns) if expt_data is not None else None)
 
     sim_data_file = os.path.join(path, 'SIM_DATA.csv')
-    sim_data = pd.read_csv(sim_data_file)
-    print('sim_data:', list(sim_data.columns))
+    sim_data = pd.read_csv(sim_data_file) if os.path.exists(sim_data_file) else None
+    print('sim_data:', list(sim_data.columns) if sim_data is not None else None)
 
     return sim_data, expt_data
 
@@ -343,3 +344,9 @@ def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=No
 
     if expt_doses is None and tc_ids is None:
         warnings.warn("No drug doses or timecourse IDs were passed to `plot_from_simdata`")
+
+
+def plot_pydream_results(dirpath, calibrator, **kwargs):
+    logps_files = glob.glob(os.path.join(dirpath, 'dreamzs*logps*'))
+    samples_files = glob.glob(os.path.join(dirpath, 'dreamzs*params*'))
+    calibrator.create_figures(logps_files, samples_files, save_plots=dirpath, **kwargs)

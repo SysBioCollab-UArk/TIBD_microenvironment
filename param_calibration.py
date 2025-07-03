@@ -648,9 +648,9 @@ class ParameterCalibration(object):
 
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
-        # FOR DEBUGGING ### TODO
-        # samples_unique = samples_unique[:10]
-        # counts = counts[:10]
+        # FOR DEBUGGING ###
+        '''samples_unique = samples_unique[:10]
+        counts = counts[:10]'''
         # #################
         # save simulation data, if requested
         if save_sim_data is not False:
