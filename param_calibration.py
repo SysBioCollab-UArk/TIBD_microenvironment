@@ -654,8 +654,9 @@ class ParameterCalibration(object):
         # #################
         # save simulation data, if requested
         if save_sim_data is not False:
+            filepath = '.' if isinstance(save_plot, bool) else save_plot
             filename = 'SIM_DATA' if save_sim_data is True else save_sim_data
-            csvfile = open("%s.csv" % filename, 'w')
+            csvfile = open(os.path.join(filepath, "%s.csv" % filename), 'w')
             csvwriter = csv.writer(csvfile, delimiter=',')
             csvwriter.writerow(['observable', 'time', 'yval_min', 'yval_max', 'sim_id'])
         # loop over simulations (experiments + perturbations)
