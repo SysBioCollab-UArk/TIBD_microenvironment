@@ -10,6 +10,16 @@ import warnings
 import glob
 
 
+# convert None -> nan
+def ensure_float(val):
+    return np.array([val], dtype=float)[0]
+
+
+# convert nan -> None
+def nan_to_none(val):
+    return None if pd.isnull(val) else val
+
+
 # Helper function for getting the optimal number of columns for a multi-plot figure
 def get_fig_ncols(ndims):
     if not isinstance(ndims, int) or ndims <= 0:
@@ -54,51 +64,69 @@ def find_closest_index(tspan, target):
     return best_idx
 
 
-def get_exp_data(filepath, show_plots=False, save_plots=False):
+def plot_exp_data(filepath, separate_plots=True, show_plots=True, save_plots=False, **kwargs):
 
-    data = np.genfromtxt(filepath, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
-    # print(data.dtype.names)
-    cond_cellTypes = np.unique([(d['Condition'], d['CellType']) for d in data], axis=0)
-    # print(cond_cellTypes)
-    return_data = {}
+    # check if an array has a single value, return that value if so, throw an Exception if not
+    def check_unique(arr):
+        if len(arr) == 1:
+            return arr[0]
+        else:
+            raise Exception('More than one value detected for quantity that should be unique:', arr)
 
-    for cc in cond_cellTypes:
-        print(cc)
+    # process kwargs
+    fontsizes = kwargs.get('fontsizes', {})
+    labels_fs = fontsizes.get('labels', 12)
+    ticks_fs = fontsizes.get('ticks', 12)
+    legend_fs = fontsizes.get('legend', 10)
+    legend_loc = kwargs.get('legend_loc', 'best')
+    use_alt_expt_ids = kwargs.get('use_alt_expt_ids', False)
 
-        # plot all data points
-        time = [d['Week'] for d in data if d['Condition'] == cc[0] and d['CellType'] == cc[1]]
-        conc = [d['Concentration'] for d in data if d['Condition'] == cc[0] and d['CellType'] == cc[1]]
-        weeks = np.unique(time)
+    # read in data
+    data = pd.read_csv(filepath)
+    observables = data['observable'].unique()
+    expt_ids = data['expt_id'].unique()
+    '''print(data.columns)
+    print(observables)
+    print(expt_ids)'''
 
-        # plot averages and standard errors
-        avg_conc = [np.mean([conc[i] for i in range(len(conc)) if time[i] == w]) for w in weeks]
-        se_conc = [[conc[i] for i in range(len(conc)) if time[i] == w] for w in weeks]
-        se_conc = [np.std(x, ddof=1) / np.sqrt(len(x)) for x in se_conc]
+    figures = []
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']  # standard colors
+    markers = ['o', '^', 's', 'v', '<', '>', 'D', 'p', 'H', '*']
+    # loop over observables and experiments and plot data
+    for obs in observables:
+        data_obs = data[data['observable'] == obs]
+        if not separate_plots:
+            fig = plt.figure(obs, constrained_layout=True)
+            if save_plots is not False and fig not in figures:
+                figures.append(fig)
+        for i, expt_id in enumerate(expt_ids):
+            data_obs_expt = data_obs[data_obs['expt_id'] == expt_id]
+            if separate_plots:
+                fig = plt.figure('%s_%s' % (obs, expt_id), constrained_layout=True)
+                if save_plots is not False and fig not in figures:
+                    figures.append(fig)
+            time = data_obs_expt['time']
+            average = data_obs_expt['average']
+            stderr = data_obs_expt['stderr']
+            label = 'expt %s' % expt_id if not use_alt_expt_ids else check_unique(data_obs_expt['alt_expt_id'].unique())
+            plt.errorbar(time, average, yerr=stderr, ls='', marker=markers[i % len(markers)],
+                         color=colors[i % len(colors)], ms=10, capsize=6, label=label)
+            time_units = check_unique(data_obs_expt['time_units'].unique())
+            amount_units = check_unique(data_obs_expt['amount_units'].unique())
+            plt.xlabel('Time (%s)' % time_units, fontsize=labels_fs)
+            plt.ylabel('%s (%s)' % (obs, amount_units), fontsize=labels_fs)
+            plt.tick_params(axis='both', which='major', labelsize=ticks_fs)
+            plt.legend(loc=legend_loc, fontsize=legend_fs)
 
-        return_data[(cc[0], cc[1])] = (weeks, avg_conc, se_conc)
-
-        if any([show_plots, save_plots]):
-            plt.figure(cc[1], constrained_layout=True)
-            p = plt.plot(time, conc, 'o', mfc='none')
-            plt.errorbar(weeks, avg_conc, se_conc, marker='o', ms=10, capsize=10, lw=3, color=p[0].get_color(),
-                         label='%s (%s)' % (cc[1], cc[0]))
-            plt.xlabel('Week')
-            ylabel = 'Relative BV/TV' if cc[1] == 'Bone' else 'Concentration (pM)'
-            plt.ylabel(ylabel)
-            plt.xticks(ticks=weeks, labels=weeks)
-            # Remove error bars from legend
-            handles, labels = plt.gca().get_legend_handles_labels()
-            handles = [h[0] if isinstance(h, container.ErrorbarContainer) else h for h in handles]
-            plt.legend(handles, labels, loc=0)
-
-    if save_plots:  # save_plots can be False, True, or a string, which is the output filename
-        filename = os.path.split(filepath)[-1].split('.')[0]+'.pdf' if save_plots is True else save_plots
-        plt.savefig(filename, format='pdf')
+    if save_plots is not False:
+        outpath = '.' if save_plots is True else save_plots
+        prefix = os.path.splitext(os.path.basename(filepath))[0]
+        for fig in figures:
+            outfile = os.path.join(outpath, prefix + '_' + fig.get_label() + '.pdf')
+            fig.savefig(outfile, format='pdf')
 
     if show_plots:
         plt.show()
-
-    return return_data
 
 
 # Helper function for getting a good x-axis upper limit for dose-response plots
@@ -195,7 +223,11 @@ def merge_legend():
     plt.legend(new_handles, new_labels, loc='best', fontsize=12)
 
 
-def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict=None, show_plot=True):
+def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict=None, show_plot=True,
+                          **kwargs):
+
+    # process kwargs
+    figsize = kwargs.get('figsize', (6.4 * 0.7, 4.8 * 0.9))
 
     if label_dict is None:
         label_dict = {}
@@ -235,7 +267,7 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
                 these_observables = expt_data.loc[expt_data['expt_id'] == expt, 'observable'].unique()
                 for obs in these_observables:
                     # for each experiment, create a figure for each observable
-                    plt.figure('%d_%d_%s' % (i, j, obs), constrained_layout=True, figsize=(6.4 * 0.7, 4.8 * 0.9))
+                    plt.figure('%d_%d_%s' % (i, j, obs), constrained_layout=True, figsize=figsize)
                     # get units for the observable and make the y-axis label
                     y_units = expt_data.loc[
                         (expt_data['expt_id'] == expt) & (expt_data['observable'] == obs), 'amount_units'].unique()
@@ -275,7 +307,11 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
         plt.show()
 
 
-def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict=None, show_plot=True):
+def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict=None, show_plot=True,
+                         **kwargs):
+
+    # process kwargs
+    figsize = kwargs.get('figsize', (6.4 * 0.7, 4.8 * 0.9))
 
     if label_dict is None:
         label_dict = {}
@@ -297,7 +333,7 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
 
         # loop over observables
         for obs in sim_data['observable'].unique():
-            plt.figure(constrained_layout=True, figsize=(6.4 * 0.7, 4.8 * 0.9))
+            plt.figure(constrained_layout=True, figsize=figsize)
             x_units = None
             y_units = None
             for tc_id in tc_ids:
@@ -336,11 +372,11 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
 
 
 def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=None, tc_ids=None, label_dict=None,
-                      show_plot=True):
+                      show_plot=True, **kwargs):
     if expt_doses is not None:
-        plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict, show_plot)
+        plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict, show_plot, **kwargs)
     if tc_ids is not None:
-        plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict, show_plot)
+        plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict, show_plot, **kwargs)
 
     if expt_doses is None and tc_ids is None:
         warnings.warn("No drug doses or timecourse IDs were passed to `plot_from_simdata`")
