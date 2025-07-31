@@ -310,8 +310,8 @@ class ParameterCalibration(object):
                 _plot_pd_args['groups'] = param_groups
             _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
 
-            return_objects[1] = param_samples = \
-                self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
+            param_samples = self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
+            return_objects[1] = param_samples, param_groups, param_labels
 
         if which_plots > 2:
             print('Plotting time courses')
@@ -423,7 +423,10 @@ class ParameterCalibration(object):
 
         if save_plot is not False:
             filepath = '.' if save_plot is True else save_plot
-            filename = 'fig_PyDREAM_log_ps' + kwargs.get('file_suffix', '')
+            suffix = kwargs.get('file_suffix', '')
+            if suffix != '' or suffix[0] != '_':
+                suffix = '_' + suffix
+            filename = 'fig_PyDREAM_log_ps' + suffix
             plt.savefig(os.path.join(filepath, filename))
 
         if show_plot:
