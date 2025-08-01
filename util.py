@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import container
 import os
 from math import isclose
 import importlib
@@ -8,6 +7,7 @@ import pandas as pd
 import math
 import warnings
 import glob
+import pysb
 
 
 # convert None -> nan
@@ -386,3 +386,71 @@ def plot_pydream_results(dirpath, calibrator, **kwargs):
     logps_files = glob.glob(os.path.join(dirpath, 'dreamzs*logps*'))
     samples_files = glob.glob(os.path.join(dirpath, 'dreamzs*params*'))
     calibrator.create_figures(logps_files, samples_files, save_plots=dirpath, **kwargs)
+
+
+def detect_equilibrium(sim, tspan_linspace, rtol=1e-6, show_plot=False):
+    fig1, ax1 = plt.subplots(constrained_layout=True, figsize=(6.4 * 1.5, 4.8))
+    fig2, ax2 = plt.subplots(constrained_layout=True, figsize=(6.4 * 1.5, 4.8))
+
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']  # standard colors
+    initials = None
+
+    t_start = tspan_linspace[0]
+    delta_t = tspan_linspace[-1] - tspan_linspace[0]
+    n_time_pts = len(tspan_linspace)
+
+    ADD_LABEL = True
+    STOP = False
+    while not STOP:
+        STOP =True
+        tspan = np.linspace(t_start, t_start + delta_t, n_time_pts)
+        output = sim.run(tspan=tspan, initials=initials)
+        for n, name in enumerate(output.all.dtype.names):
+            if name[0] == '_':  # this is a species
+                conc = output.all[name]
+                ax1.plot(tspan, conc, color=colors[n % len(colors)],
+                         label=name[2:] if ADD_LABEL else None)  # conc
+                d_conc_dt = [(conc[i] - conc[i - 1]) / conc[i - 1] / (tspan[i] - tspan[i - 1])
+                             for i in range(1, len(conc))]
+                ax2.plot(tspan[1:], d_conc_dt, color=colors[n % len(colors)],
+                         label=name[2:] if ADD_LABEL else None)  # d_conc/dt
+                # check for equilibrium
+                if d_conc_dt[-1] > rtol:
+                    STOP = False
+        print('Simulated %g time units:' % (tspan[-1]), end=' ')
+        if not STOP:
+            print('Equilibration NOT detected, continuing...')
+            t_start = tspan[-1]
+            initials = output.species[-1]
+            ADD_LABEL = False
+        else:
+            print('Equilibration detected!')
+    # add a horizontal dashed line indicating equilibration
+    ax2.axhline(rtol, linestyle='--', color='r', lw=2)
+    ax2.annotate(text='Equil. threshold', xy=(0.7 * tspan[-1], 2.1 * rtol), xycoords='data', color='r',
+                 fontsize=12, fontweight='bold')
+    # finish up the plots
+    for ax, ylabel in zip([ax1, ax2], ['[Conc]', 'Relative d[Conc]/dt']):
+        ax.set_xlabel('Time')
+        ax.set_ylabel(ylabel)
+        ax.set_yscale('log')
+        ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1), ncols=3)
+
+    if show_plot:
+        plt.show()
+
+    return tspan[-1]
+
+
+def remove_unneeded_observables(model, obs_to_keep=None):
+    print("Inside 'remove_unneeded_observables'")
+    obs_to_keep = [] if obs_to_keep is None else [obs_to_keep] if isinstance(obs_to_keep, str) else list(obs_to_keep)
+    # get names of Observables in Expressions
+    obs_names = []
+    for expr in model.expressions:
+        symbols = expr.expand_expr().free_symbols
+        obs = [s for s in symbols if isinstance(s, pysb.core.Observable)]
+        obs_names += [o.name for o in obs if o.name not in obs_names]
+    obs_names = list(set(obs_names + obs_to_keep))  # create a set and then cast back to a list to remove duplicates
+    new_observables = pysb.core.ComponentSet([model.observables[obs_name] for obs_name in obs_names])
+    model.observables = new_observables
