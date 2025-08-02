@@ -385,7 +385,7 @@ def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=No
 def plot_pydream_results(dirpath, calibrator, **kwargs):
     logps_files = glob.glob(os.path.join(dirpath, 'dreamzs*logps*'))
     samples_files = glob.glob(os.path.join(dirpath, 'dreamzs*params*'))
-    calibrator.create_figures(logps_files, samples_files, save_plots=dirpath, **kwargs)
+    return calibrator.create_figures(logps_files, samples_files, save_plots=dirpath, **kwargs)
 
 
 def detect_equilibrium(sim, tspan_linspace, rtol=1e-6, show_plot=False):
@@ -443,7 +443,6 @@ def detect_equilibrium(sim, tspan_linspace, rtol=1e-6, show_plot=False):
 
 
 def remove_unneeded_observables(model, obs_to_keep=None):
-    print("Inside 'remove_unneeded_observables'")
     obs_to_keep = [] if obs_to_keep is None else [obs_to_keep] if isinstance(obs_to_keep, str) else list(obs_to_keep)
     # get names of Observables in Expressions
     obs_names = []

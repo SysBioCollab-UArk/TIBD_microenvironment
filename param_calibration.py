@@ -424,7 +424,7 @@ class ParameterCalibration(object):
         if save_plot is not False:
             filepath = '.' if save_plot is True else save_plot
             suffix = kwargs.get('file_suffix', '')
-            if suffix != '' or suffix[0] != '_':
+            if suffix != '' or len(suffix) > 0 and suffix[0] != '_':
                 suffix = '_' + suffix
             filename = 'fig_PyDREAM_log_ps' + suffix
             plt.savefig(os.path.join(filepath, filename))
