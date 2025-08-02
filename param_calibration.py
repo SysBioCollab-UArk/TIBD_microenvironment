@@ -39,7 +39,7 @@ class SimulationProtocol(object):
 
 class ParameterCalibration(object):
 
-    def __init__(self, model, exp_data_file, sim_protocols, priors=None, no_sample=None, default_prior=('norm', 2.0),
+    def __init__(self, model, expt_data_file, sim_protocols, priors=None, no_sample=None, default_prior=('norm', 2.0),
                  param_expts_map=None):
 
         self.model = model
@@ -47,7 +47,7 @@ class ParameterCalibration(object):
         self.sim_protocols = [sim_protocols] if len(np.array(sim_protocols).shape) == 0 else sim_protocols
 
         # read in experimental data
-        self.raw_data = np.genfromtxt(exp_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
+        self.raw_data = np.genfromtxt(expt_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
 
         # determine how many experiments there are and what the time points and observables are for each
         self.experiments = list(dict.fromkeys([d['expt_id'] for d in self.raw_data])) # preserves order of appearance
