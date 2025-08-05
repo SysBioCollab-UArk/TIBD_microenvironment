@@ -39,11 +39,13 @@ param_expts_map = {
     'k_tumor_OC': [['A'], ['B', 'C', 'D']]
 }
 
+sim_protocols = [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection]
+
 if __name__ == '__main__':
 
     calibrator = ParameterCalibration(model,
                                       expt_data_file,
-                                      [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection],
+                                      sim_protocols,
                                       priors=custom_priors,
                                       no_sample=no_sample,
                                       param_expts_map=param_expts_map)
