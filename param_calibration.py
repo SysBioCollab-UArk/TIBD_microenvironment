@@ -12,7 +12,7 @@ import os
 import csv
 import multiprocessing
 import math
-from util import find_closest_index, get_fig_ncols
+from pydream_util import find_closest_index, get_fig_ncols
 
 
 # Function for timeout option

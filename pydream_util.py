@@ -382,7 +382,7 @@ def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=No
         warnings.warn("No drug doses or timecourse IDs were passed to `plot_from_simdata`")
 
 
-def plot_pydream_results(dirpath, calibrator, **kwargs):
+def plot_pydream_output(dirpath, calibrator, **kwargs):
     logps_files = glob.glob(os.path.join(dirpath, 'dreamzs*logps*'))
     samples_files = glob.glob(os.path.join(dirpath, 'dreamzs*params*'))
     return calibrator.create_figures(logps_files, samples_files, save_plots=dirpath, **kwargs)
