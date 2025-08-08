@@ -175,60 +175,40 @@ class ParameterCalibration(object):
             history_thin=1, gamma_levels=4, multitry=False, timeout=5, obs_labels=None, plot_results=True,
             plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
 
-        sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
-                                           likelihood=self.likelihood,
-                                           nchains=nchains,
-                                           niterations=niterations,
-                                           start=start,
-                                           restart=restart,
-                                           verbose=verbose,
-                                           adapt_gamma=adapt_gamma,
-                                           history_thin=history_thin,
-                                           gamma_levels=gamma_levels,
-                                           multitry=multitry,
-                                           timeout=timeout,
-                                           model_name='dreamzs_%dchain' % nchains)
-        total_iterations = niterations
-        burnin = int(total_iterations / 2)
-        # Save sampling output (sampled parameter values and their corresponding logps).
-        for chain in range(len(sampled_params)):
-            np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' %
-                    (nchains, chain, total_iterations), sampled_params[chain])
-            np.save('dreamzs_%dchain_logps_chain_%d_%d' % (nchains, chain, total_iterations), log_ps[chain])
-        old_samples = sampled_params
-
-        # Check convergence and continue sampling if not converged
-        GR = Gelman_Rubin(sampled_params)
-        print('At iteration: ', total_iterations, ' GR = ', GR)
-        np.savetxt('dreamzs_%dchain_GelmanRubin_iteration_%d.txt' % (nchains, total_iterations), GR)
-        if np.any(GR > 1.2):
-            starts = [sampled_params[chain][-1, :] for chain in range(nchains)]
-            converged = False
-            while not converged:
-                total_iterations += niterations
-                burnin += niterations
-                sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
-                                                   likelihood=self.likelihood,
-                                                   nchains=nchains,
-                                                   niterations=niterations,
-                                                   start=starts,
-                                                   restart=True,
-                                                   verbose=verbose,
-                                                   adapt_gamma=adapt_gamma,
-                                                   history_thin=history_thin,
-                                                   gamma_levels=gamma_levels,
-                                                   multitry=multitry,
-                                                   model_name='dreamzs_%dchain' % nchains)
-                for chain in range(len(sampled_params)):
-                    np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' %
-                            (nchains, chain, total_iterations), sampled_params[chain])
-                    np.save('dreamzs_%dchain_logps_chain_%d_%d' % (nchains, chain, total_iterations), log_ps[chain])
-                old_samples = [np.concatenate((old_samples[chain], sampled_params[chain])) for chain in range(nchains)]
-                GR = Gelman_Rubin(old_samples)
-                print('At iteration: ', total_iterations, ' GR = ', GR)
-                np.savetxt('dreamzs_%dchain_GelmanRubin_iteration_%d.txt' % (nchains, total_iterations), GR)
-                if np.all(GR < 1.2):
-                    converged = True
+        total_iterations = 0
+        old_samples = None
+        converged = False
+        while not converged:
+            sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
+                                               likelihood=self.likelihood,
+                                               nchains=nchains,
+                                               niterations=niterations,
+                                               start=start,
+                                               restart=restart,
+                                               verbose=verbose,
+                                               adapt_gamma=adapt_gamma,
+                                               history_thin=history_thin,
+                                               gamma_levels=gamma_levels,
+                                               multitry=multitry,
+                                               timeout=timeout,
+                                               model_name='dreamzs_%dchain' % nchains)
+            total_iterations += niterations
+            # Save sampled parameter values and corresponding logps
+            for chain in range(len(sampled_params)):
+                np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' % (nchains, chain, total_iterations),
+                        sampled_params[chain])
+                np.save('dreamzs_%dchain_logps_chain_%d_%d' % (nchains, chain, total_iterations), log_ps[chain])
+            old_samples = sampled_params if old_samples is None else \
+                [np.concatenate((old_samples[chain], sampled_params[chain])) for chain in range(nchains)]
+            # Check for convergence
+            GR = Gelman_Rubin(sampled_params, fburnin=0.5)
+            print('At iteration: ', total_iterations, ' GR = ', GR)
+            np.savetxt('dreamzs_%dchain_GelmanRubin_iteration_%d.txt' % (nchains, total_iterations), GR)
+            if np.all(GR < 1.2):
+                converged = True
+            else:
+                start = [sampled_params[chain][-1, :] for chain in range(nchains)]
+                restart = True
 
         if plot_results:
             logps_files = glob.glob('dreamzs*logps*')
@@ -242,10 +222,10 @@ class ParameterCalibration(object):
 
         # which plots should we create? (NOTE: user can pass an integer too)
         which_plots = \
-            3 if which_plots == 'all' or which_plots == 'll_pd_tc' else \
-            2 if which_plots == 'll_pd' else \
-            1 if which_plots == 'll' else \
-            0 if which_plots == 'none' else \
+            3 if str(which_plots).lower() in ['all', 'll_pd_tc'] else \
+            2 if str(which_plots).lower() == 'll_pd' else \
+            1 if str(which_plots).lower() == 'll' else \
+            0 if str(which_plots).lower() == 'none' else \
             which_plots
 
         # error check
@@ -371,6 +351,13 @@ class ParameterCalibration(object):
     @staticmethod
     def plot_log_likelihood(logps_files, show_plot=False, save_plot=True, cutoff=None, **kwargs):
 
+        # process kwargs
+        fontsizes = kwargs.get('fontsizes', {})
+        labels_fs = fontsizes.get('labels', None)
+        ticks_fs = fontsizes.get('ticks', None)
+        legend_fs = fontsizes.get('legend', None)
+        leg_ncols = kwargs.get('leg_ncols', 1)
+
         # get the path from the first file
         path, file = os.path.split(logps_files[0])
         m = re.search(r'(.+)_chain', file)
@@ -417,9 +404,12 @@ class ParameterCalibration(object):
             plt.axhline(log_ps_mean - cutoff * np.sqrt(log_ps_var), color='k', ls='--', lw=2)
         plt.ylim(bottom=bottom, top=top)
         plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
-        plt.xlabel('iteration')
-        plt.ylabel('log-likelihood')
-        plt.legend(loc=0)
+        if ticks_fs is not None:
+            plt.gca().get_xaxis().get_offset_text().set_fontsize(0.75 * ticks_fs)
+        plt.xlabel('iteration', fontsize=labels_fs)
+        plt.ylabel('log-likelihood', fontsize=labels_fs)
+        plt.tick_params(axis='both', labelsize=ticks_fs)
+        plt.legend(loc=0, fontsize=legend_fs, ncols=leg_ncols)
 
         if save_plot is not False:
             filepath = '.' if save_plot is True else save_plot
@@ -478,7 +468,7 @@ class ParameterCalibration(object):
         samples = np.concatenate(tuple(samples_chain[chain] for chain in range(len(chains))))
 
         # plot histograms
-        print("Number of samples: %d (of %d total)" % (len(samples), burnin * len(chains)))
+        print("Number of samples: %d (of %d total)" % (len(samples), (len(samples) - burnin) * len(chains)))
         if groups is None:
             groups = [[i for i in range(len(samples[0]))]]
         if labels is None:
