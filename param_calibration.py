@@ -468,7 +468,7 @@ class ParameterCalibration(object):
         samples = np.concatenate(tuple(samples_chain[chain] for chain in range(len(chains))))
 
         # plot histograms
-        print("Number of samples: %d (of %d total)" % (len(samples), (len(samples) - burnin) * len(chains)))
+        print("Number of samples: %d (of %d total)" % (len(samples), (max(iterations) - burnin) * len(chains)))
         if groups is None:
             groups = [[i for i in range(len(samples[0]))]]
         if labels is None:
@@ -490,7 +490,7 @@ class ParameterCalibration(object):
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
             if nrows == 1 and ncols == 1:
-                axs = np.array([axs])  # make it an np.ndarray
+                axs = np.array([[axs]])  # make it an np.ndarray
             # save the fig and axes for later
             fig_axs_list.append((fig, axs.flatten()))
             ##### TODO
@@ -642,8 +642,8 @@ class ParameterCalibration(object):
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
         # FOR DEBUGGING ###
-        '''samples_unique = samples_unique[:10]
-        counts = counts[:10]'''
+        # samples_unique = samples_unique[:100]
+        # counts = counts[:100]
         # #################
         # save simulation data, if requested
         if save_sim_data is not False:
