@@ -4,7 +4,10 @@ import os
 from matplotlib.ticker import ScalarFormatter
 
 
-def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
+def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True, **kwargs):
+
+    # process kwargs
+    sharex = kwargs.get('sharex', 'all')
 
     # Experimental data
     expt_data_file = os.path.join(path, 'TIBD_PopD_Data.csv')  # 'TIBD_Johnson2011.csv')
@@ -95,7 +98,7 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
 
     nrows = 2
     ncols = 2
-    fig, axs = plt.subplots(nrows, ncols, sharex='all', figsize=[1*6.4, 1.2*4.8], constrained_layout=True)
+    fig, axs = plt.subplots(nrows, ncols, sharex=sharex, figsize=[1*6.4, 1.2*4.8], constrained_layout=True)
 
     # create 2nd y-axis for Johnson et al. (2011) tumor data
     axs_tumor2 = axs[1, 1].twinx()
@@ -109,7 +112,6 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
         ax2_color = 'white'
 
     print(sim_expt_ids)
-    xticks = [0, 7, 14, 21, 28] if any('Johnson' in sim_expt_id for sim_expt_id in sim_expt_ids) else [0, 7, 14, 21]
     row = col = 0
     for obs_name in obs_names:
         axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
@@ -126,7 +128,7 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
                 yval_max = [d['yval_max'] for d in sim_data[sim_expt_id] if d['observable'] == obs_name]
                 ax.fill_between(sim_time, yval_min, yval_max, alpha=0.25, label=legend_labels[sim_expt_id],
                                            color=colors[sim_expt_id])
-                # add an arrow pointing to the right for the Johnson et al. (PBS-Tumor)
+                # add arrows pointing to the left and right if Bennett2024 and Johnson2011 tumor data are both present
                 if obs_name == 'Tumor_tot':
                     arr_length = 0.18
                     if sim_expt_id == 'Johnson2011 (PBS-Tumor)':
@@ -149,7 +151,8 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
 
         ylabel = 'Relative BV/TV (%)' if obs_name == 'Bone_tot' else 'Concentration (fM)'
         axs[row, col].set_ylabel(ylabel, fontsize=14)
-        axs[row, col].set_xticks(xticks, xticks)
+        xticks = np.arange(0, axs[row, col].get_xlim()[1], 7)
+        axs[row, col].set_xticks(xticks, [int(xtick) for xtick in xticks])
         axs[row, col].set_xlim(right=xticks[-1] + 2)
         axs[row, col].tick_params(axis='both', which='major', labelsize=14)
         # update row and col
@@ -169,6 +172,19 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True):
     left = 0
     bottom = 0.12
     fig.get_layout_engine().set(rect=(left, bottom, 1 - left, 1 - bottom))  # (left, bottom, width, height)
+
+    # fix the y-axis limits
+    fig.canvas.draw()
+    for ax in list(axs.flatten()) + [axs_tumor2]:
+        yticks = list(ax.get_yticks())
+        yticks_old = None
+        while yticks != yticks_old:
+            yticks_old = yticks
+            ylim = ax.get_ylim()
+            if yticks[-1] - ylim[1] < ylim[1] - yticks[-2]:
+                ax.set_ylim(top=yticks[-1])
+                fig.canvas.draw()
+                yticks = list(ax.get_yticks())
 
     # save the figure
     fig.savefig(fig_name)
@@ -205,10 +221,10 @@ if __name__ == '__main__':
     for d in directories:
         path = os.path.join(base_path, d)
 
-        make_fig(path, [A, B, C, D], 'Figure_3', expt_data_only=True)
-        make_fig(path, [A, B], 'Figure_4', expt_data_only=False)
-        make_fig(path, [A, '4'], 'Figure_5', expt_data_only=False)
-        # make_fig(path, [C, '3'], 'Figure_ZA', expt_data_only=False)
+        make_fig(path, [A, B, C, D], 'Figure_ABCD', expt_data_only=True)
+        make_fig(path, [A, B], 'Figure_AB', expt_data_only=False)
+        make_fig(path, [A, '4'], 'Figure_A_ZA', expt_data_only=False)
+        make_fig(path, [A, C, '4'], 'Figure_AC_ZA', expt_data_only=False, sharex='all')
         # make_fig(path, [B, C], 'Figure_B_C', expt_data_only=False)
         # make_fig(path, [B], 'Figure_B', expt_data_only=False)
 
