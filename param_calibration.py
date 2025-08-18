@@ -109,8 +109,8 @@ class ParameterCalibration(object):
                 self.parameter_idxs.append(i)
                 p_value = self.model.parameters[p.name].value
                 prior = default_prior if p.name not in list(priors.keys()) else priors[p.name]
-                print("Will sample parameter {} with {} prior around log10({}) = {}".format(p.name, prior,
-                                                                                            p_value, np.log10(p_value)))
+                print("Will sample parameter {} with {} prior around log10({}) = {}".format(p.name, prior, p_value,
+                                                                                            np.log10(p_value)))
                 # loop over groups of experiments (default is one group with all experiments)
                 for group in param_expts_map.get(p.name, [[expt for expt in self.experiments]]):
                     if prior[0] == 'uniform':
@@ -176,7 +176,7 @@ class ParameterCalibration(object):
             plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
 
         total_iterations = 0
-        old_samples = None
+        all_samples = None
         converged = False
         while not converged:
             sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
@@ -198,10 +198,10 @@ class ParameterCalibration(object):
                 np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' % (nchains, chain, total_iterations),
                         sampled_params[chain])
                 np.save('dreamzs_%dchain_logps_chain_%d_%d' % (nchains, chain, total_iterations), log_ps[chain])
-            old_samples = sampled_params if old_samples is None else \
-                [np.concatenate((old_samples[chain], sampled_params[chain])) for chain in range(nchains)]
+            all_samples = sampled_params if all_samples is None else \
+                [np.concatenate((all_samples[chain], sampled_params[chain])) for chain in range(nchains)]
             # Check for convergence
-            GR = Gelman_Rubin(sampled_params, fburnin=0.5)
+            GR = Gelman_Rubin(all_samples, fburnin=0.5)
             print('At iteration: ', total_iterations, ' GR = ', GR)
             np.savetxt('dreamzs_%dchain_GelmanRubin_iteration_%d.txt' % (nchains, total_iterations), GR)
             if np.all(GR < 1.2):
@@ -474,6 +474,7 @@ class ParameterCalibration(object):
         if labels is None:
             labels = [['p_%d_%d' % (i, j) for j in range(len(groups[i]))] for i in range(len(groups))]
         fig_axs_list = []
+        # fig2_axs2_list = []
         for n, label, group in zip(range(len(labels)), labels, groups):
             ndims = len(group)  # number of dimensions (i.e., parameters)
             # set plot parameters
@@ -489,14 +490,19 @@ class ParameterCalibration(object):
             colors = sns.color_palette(n_colors=ndims)
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
-            if nrows == 1 and ncols == 1:
-                axs = np.array([[axs]])  # make it an np.ndarray
-            # save the fig and axes for later
-            fig_axs_list.append((fig, axs.flatten()))
             ##### TODO
-            # fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex='none', sharey=sharey, constrained_layout=True,
+            # fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
             #                           figsize=figsize)
             #####
+            if nrows == 1 and ncols == 1:
+                axs = np.array([[axs]])  # make it an np.ndarray
+                ##### TODO
+                # axs2 = np.array([[axs2]])
+                #####
+            # save the fig and axes for later
+            fig_axs_list.append((fig, axs.flatten()))
+            # fig2_axs2_list.append((fig2, axs2.flatten()))
+            # loop over parameters
             row = 0
             col = 0
             for dim in range(ndims):
@@ -510,7 +516,8 @@ class ParameterCalibration(object):
                 axs[row][col].tick_params(axis='x', labelsize=labelsize)
                 ##### TODO
                 # for chain in range(len(chains)):
-                #     sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col])
+                #     sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col],
+                #             bw_adjust=bw_adjust)
                 #     #, label='chain %d' % chains[chain])
                 # # axs2[row][col].legend(loc=0)
                 # axs2[row][col].set_yticklabels([])
@@ -533,11 +540,12 @@ class ParameterCalibration(object):
                 while col < ncols:
                     fig.delaxes(axs[row][col])
                     ##### TODO
-                    # fig2.delaxes(axs[row][col])
+                    # fig2.delaxes(axs2[row][col])
                     #####
                     col += 1
 
         # Determine common x-limits for all figures, if requested (only applicable if there are multiple param groups)
+        # TODO: add code for fig2 and axs2 here
         if len(fig_axs_list) > 1 and kwargs.get('sharex', 'all') == 'all':
             # Extract x-limits across all subplots
             x_min = np.inf
