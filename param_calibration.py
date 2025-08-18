@@ -12,7 +12,7 @@ import os
 import csv
 import multiprocessing
 import math
-from pydream_util import find_closest_index, get_fig_ncols
+from pydream_util import find_closest_index, get_fig_ncols, is_num_pair
 
 
 # Function for timeout option
@@ -427,6 +427,11 @@ class ParameterCalibration(object):
     @staticmethod
     def plot_param_dist(sample_files, show_plot=False, save_plot=True, labels=None, groups=None, cutoff=None, **kwargs):
 
+        # process kwargs
+        sharex = kwargs.get('sharex', 'all')
+        sharey = kwargs.get('sharey', 'none')
+        bw_adjust = kwargs.get('bw_adjust', 1)
+
         # get chains and iterations from file names
         chains = []
         iterations = []
@@ -474,35 +479,33 @@ class ParameterCalibration(object):
         if labels is None:
             labels = [['p_%d_%d' % (i, j) for j in range(len(groups[i]))] for i in range(len(groups))]
         fig_axs_list = []
-        # fig2_axs2_list = []
+        fig2_axs2_list = []
         for n, label, group in zip(range(len(labels)), labels, groups):
             ndims = len(group)  # number of dimensions (i.e., parameters)
             # set plot parameters
-            ncols = kwargs.get('ncols', get_fig_ncols(ndims))
+            ncols = get_fig_ncols(ndims) if kwargs.get('ncols', None) is None else kwargs['ncols'][n]
             nrows = math.ceil(ndims/ncols)
-            figsize = kwargs.get('figsize', (0.65 * ncols * 6.4, 0.5 * nrows * 4.8))
-            labelsize = kwargs.get('labelsize', 10 * max(1, (2/5 * np.ceil(nrows / 2))))
-            fontsize = kwargs.get('fontsize', 10 * max(1, (3/5 * np.ceil(nrows / 2))))
-            sharex = kwargs.get('sharex', 'all')
-            sharey = kwargs.get('sharey', 'none')
-            bw_adjust = kwargs.get('bw_adjust', 1)
+            figsize = (0.65 * ncols * 6.4, 0.5 * nrows * 4.8) if kwargs.get('figsize', None) is None \
+                else kwargs['figsize'] if is_num_pair(kwargs['figsize']) else kwargs['figsize'][n]
             # create figure
             colors = sns.color_palette(n_colors=ndims)
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
-            ##### TODO
-            # fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
-            #                           figsize=figsize)
+            #####
+            fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
+                                      figsize=figsize)
             #####
             if nrows == 1 and ncols == 1:
                 axs = np.array([[axs]])  # make it an np.ndarray
-                ##### TODO
-                # axs2 = np.array([[axs2]])
+                #####
+                axs2 = np.array([[axs2]])
                 #####
             # save the fig and axes for later
             fig_axs_list.append((fig, axs.flatten()))
-            # fig2_axs2_list.append((fig2, axs2.flatten()))
+            fig2_axs2_list.append((fig2, axs2.flatten()))
             # loop over parameters
+            labelsize = 10 * max(1, (2/5 * np.ceil(nrows / 2))) if kwargs.get('labelsize', None) is None \
+                else kwargs['labelsize'] if isinstance(kwargs['labelsize'], int) else kwargs['labelsize'][n]
             row = 0
             col = 0
             for dim in range(ndims):
@@ -515,56 +518,76 @@ class ParameterCalibration(object):
                 axs[row][col].set_title(label[dim], fontsize=labelsize)
                 axs[row][col].tick_params(axis='x', labelsize=labelsize)
                 ##### TODO
-                # for chain in range(len(chains)):
-                #     sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col],
-                #             bw_adjust=bw_adjust)
-                #     #, label='chain %d' % chains[chain])
-                # # axs2[row][col].legend(loc=0)
-                # axs2[row][col].set_yticklabels([])
-                # axs2[row][col].set_ylabel(None)
-                # axs2[row][col].set_title(label[dim], fontsize=labelsize)
-                # axs2[row][col].tick_params(axis='x', labelsize=labelsize)
+                for chain in range(len(chains)):
+                    sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col],
+                            bw_adjust=bw_adjust)
+                    #, label='chain %d' % chains[chain])
+                # axs2[row][col].legend(loc=0)
+                axs2[row][col].set_yticklabels([])
+                axs2[row][col].set_ylabel(None)
+                axs2[row][col].set_title(label[dim], fontsize=labelsize)
+                axs2[row][col].tick_params(axis='x', labelsize=labelsize)
                 #####
                 col += 1
                 if col % ncols == 0:
                     col = 0
                     row += 1
+            fontsize = 10 * max(1, (3/5 * np.ceil(nrows / 2))) if kwargs.get('fontsize', None) is None \
+                else kwargs['fontsize'] if isinstance(kwargs['fontsize'], int) else kwargs['fontsize'][n]
             fig.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
             fig.supylabel('Density', fontsize=fontsize)
             ##### TODO
-            # fig2.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
-            # fig2.supylabel('Density', fontsize=fontsize)
+            fig2.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
+            fig2.supylabel('Density', fontsize=fontsize)
             #####
             # delete extra plots
             if col > 0:
                 while col < ncols:
                     fig.delaxes(axs[row][col])
                     ##### TODO
-                    # fig2.delaxes(axs2[row][col])
+                    fig2.delaxes(axs2[row][col])
                     #####
                     col += 1
 
-        # Determine common x-limits for all figures, if requested (only applicable if there are multiple param groups)
-        # TODO: add code for fig2 and axs2 here
-        if len(fig_axs_list) > 1 and kwargs.get('sharex', 'all') == 'all':
-            # Extract x-limits across all subplots
-            x_min = np.inf
-            x_max = -np.inf
-            for fig, axs in fig_axs_list:
-                for ax in axs:
-                    x_min = min(x_min, ax.get_xlim()[0])
-                    x_max = max(x_max, ax.get_xlim()[1])
-            # Apply the common x-limits to all figures
-            for fig, axs in fig_axs_list:
-                for ax in axs:
-                    ax.set_xlim(x_min, x_max)
+        # Make x- and y-axis limits identical for filled and unfilled parameter distribution plots
+        x_min, x_max, y_min, y_max = ([], [], [], [])
+        for (_, axs), (_, axs2) in zip(fig_axs_list, fig2_axs2_list):
+            for ax, ax2 in zip(axs, axs2):
+                x_min.append(min(ax.get_xlim()[0], ax2.get_xlim()[0]))
+                x_max.append(max(ax.get_xlim()[1], ax2.get_xlim()[1]))
+                y_min.append(min(ax.get_ylim()[0], ax2.get_ylim()[0]))
+                y_max.append(max(ax.get_ylim()[1], ax2.get_ylim()[1]))
+        # If 'sharex' and/or 'sharey' = 'all', get global values (only applicable if there are multiple param groups)
+        if len(fig_axs_list) > 1:
+            if sharex == 'all':
+                x_min_all, x_max_all = (min(x_min), max(x_max))
+                for n in range(len(x_min)):
+                    x_min[n] = x_min_all
+                    x_max[n] = x_max_all
+            if sharey == 'all':
+                y_min_all, y_max_all = (min(y_min), max(y_max))
+                for n in range(len(y_min)):
+                    y_min[n] = y_min_all
+                    y_max[n] = y_max_all
+        # Apply the common x-limits to subplots of all figures
+        n = 0
+        for (_, axs), (_, axs2) in zip(fig_axs_list, fig2_axs2_list):
+            for ax, ax2 in zip(axs, axs2):
+                ax.set_xlim(x_min[n], x_max[n])
+                ax.set_ylim(y_min[n], y_max[n])
+                ax2.set_xlim(x_min[n], x_max[n])
+                ax2.set_ylim(y_min[n], y_max[n])
+                n += 1
 
         if save_plot is not False:
             filepath = '.' if save_plot is True else save_plot
-            filename = 'fig_PyDREAM_histograms'
-            for n, (fig, axs) in enumerate(fig_axs_list):
-                filename += '' if len(groups) == 1 else '_group_%d' % n
+            fname_base = 'fig_PyDREAM_histograms'
+            fname2_base = fname_base + '_chains'
+            for n, ((fig, _), (fig2, _)) in enumerate(zip(fig_axs_list, fig2_axs2_list)):
+                filename = fname_base if len(groups) == 1 else fname_base + '_group_%d' % n
                 fig.savefig(os.path.join(filepath, filename))
+                filename2 = fname2_base if len(groups) == 1 else fname2_base + '_group_%d' % n
+                fig2.savefig(os.path.join(filepath, filename2))
 
         if show_plot:
             plt.show()

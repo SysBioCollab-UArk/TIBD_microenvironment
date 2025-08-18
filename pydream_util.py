@@ -8,7 +8,22 @@ import math
 import warnings
 import glob
 import pysb
+from collections.abc import Iterable
 
+
+def is_num_pair(obj):
+    try:
+        # Convert to list so we can check length and reuse elements
+        items = list(obj)
+    except TypeError:
+        # Not iterable
+        return False
+
+    return (
+            isinstance(obj, Iterable) and
+            len(items) == 2 and
+            all(isinstance(x, (int, float)) for x in items)
+    )
 
 # convert None -> nan
 def ensure_float(val):
