@@ -45,9 +45,9 @@ if return_objs[1] is not None:
                 'table_props': {'fontsize': 20, 'ncols': 2, 'scale': (1, 2), 'nudge': (0.01, 0)},
             }
             plot_hist_overlays(
-                two_samples=(samples[:, groups[group_pair[i]]] for i in range(2)),
+                two_samples=set(samples[:, groups[group_pair[i]]] for i in range(2)),
                 param_labels=param_labels[group_pair[0]],
-                hist_labels=(group_labels[group_pair[i]] for i in range(2)),
+                hist_labels=set(group_labels[group_pair[i]] for i in range(2)),
                 show_plots=True, save_plots=dirpath, **kwargs
             )
 
