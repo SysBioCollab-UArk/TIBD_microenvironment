@@ -104,6 +104,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     D = []  # histogram distances
     if E_Dself is None:
         E_Dself = [[None] * n_params for _ in range(2)]
+    print('Plotting %d histogram overlays' % n_params)
     for n in range(n_params):
         print(n, end=' ')
         # share x-axis with first subplot
@@ -206,15 +207,12 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
             for col in range(len(table_data[row])):
                 word_width = get_word_width(fig_barplot, table_data[row][col], fontsize=table_fs,
                                             fontweight='normal') / fig_barplot.get_axes()[0].get_position().width
-                print('row: %d, col: %d, word_width: %g' % (row, col, word_width))
                 if word_width > col_widths[col]:
                     col_widths[col] = word_width
         # Remove all borders and set column widths
         for (_, col), cell in this_table.get_celld().items():
             cell.set_linewidth(0)
             cell.set_width(col_widths[col])
-        # for cell in this_table.get_celld().values():
-        #     cell.set_linewidth(0)
 
         return this_table
 
@@ -231,16 +229,17 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         # Make a new table
         scale_x, scale_y = (1, 1) if table_scale is None else (table_scale[0], table_scale[1])
         dx, dy = (0, 0) if table_nudge is None else (table_nudge[0], table_nudge[1])
-        print('(scale_x, scale_y): (%g, %g):' % (scale_x, scale_y))
-        print('(dx, dy): (%g, %g):' % (dx, dy))
         add_table(bbox=(bbox.x0 + dx - bbox.width * (scale_x - 1), bbox.y0 + dy - bbox.height * (scale_y - 1),
                         bbox.width * scale_x, bbox.height * scale_y))
 
     if save_plots is not False:
         outdir = '.' if save_plots is True else save_plots
+        print('Saving...')
         for fig, fig_type in zip([fig_overlay, fig_barplot], ['hist_overlay', 'hist_distances']):
             outfile = 'fig_PyDREAM_%s_%s' % (fig_type, str.join('_', hist_labels))
+            print('    %s' % outfile)
             fig.savefig(os.path.join(outdir, outfile))
+        print('...to %s' % os.path.abspath(outdir))
 
     if show_plots:
         plt.show()

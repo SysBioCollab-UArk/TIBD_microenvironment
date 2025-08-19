@@ -5,9 +5,9 @@ import glob
 import os
 import itertools
 
+# path = '../earm/xpdata/forfits/PyDREAM_RESULTS/RUN_1'
 path = '../AorticCalcification/SAVE/Messika'
-# '/Users/leonardharris/PycharmProjects/Mitochondrial_Complex_II/SAVED/TEMP'
-# 2024_06_06_1expt'
+# path = '/Users/leonardharris/PycharmProjects/Mitochondrial_Complex_II/SAVED/TEMP'
 
 logps_files = glob.glob(os.path.join(path, 'dreamzs*logps*'))
 sample_files = glob.glob(os.path.join(path, 'dreamzs*params*'))
@@ -21,7 +21,9 @@ for file in sample_files:
 chains = np.unique(chains)
 all_iterations = np.unique(iterations)
 
-for n in range(1, 3):
+print('all_iterations:', all_iterations)
+
+for n in range(1, len(all_iterations) + 1):  # [len(all_iterations)]:
     iterations = all_iterations[:n]
     print('iterations:', iterations)
     for fburnin in [0.5]:  # [0.2, 0.4, 0.5, 0.6, 0.8]:
