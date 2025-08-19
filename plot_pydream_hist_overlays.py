@@ -89,6 +89,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     table_ncols = table_props.get('ncols', 2)
     table_scale = table_props.get('scale', None)  # stretch/squeeze embedded table
     table_nudge = table_props.get('nudge', None)  # move table horizontally and/or vertically
+    barplot_ymax = table_props.get('barplot_ymax', None)
 
     ### Plot histogram distances with self distances ###
     n_params = len(param_labels)
@@ -168,7 +169,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     sorted_idxs = np.argsort(D)[::-1]  # sort from largest to smallest
     sorted_labels = [param_labels[i % n_params] for i in sorted_idxs]
     table_data = []
-    for i, col in enumerate(range(table_ncols)):
+    for col in range(table_ncols):
         start = col * n_params // table_ncols
         end = (col + 1) * n_params // table_ncols
         '''print('start: %d, end: %d, len(sorted_labels): %d' % (start, end, len(sorted_labels)))'''
@@ -190,6 +191,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     plt.xlabel('Index', fontsize=labels_fs)
     plt.ylabel('Histogram Distance', fontsize=labels_fs)
     plt.tick_params(axis='both', which='major', labelsize=ticks_fs)
+    plt.ylim(top=barplot_ymax)
 
     # Add table to the barplot
     def add_table(loc=None, bbox=None):
@@ -205,10 +207,11 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         col_widths = [0 for _ in range(table_ncols)]
         for row in range(len(table_data)):
             for col in range(len(table_data[row])):
-                word_width = get_word_width(fig_barplot, table_data[row][col], fontsize=table_fs,
-                                            fontweight='normal') / fig_barplot.get_axes()[0].get_position().width
-                if word_width > col_widths[col]:
-                    col_widths[col] = word_width
+                if len(table_data[row][col]) > 0:
+                    word_width = get_word_width(fig_barplot, table_data[row][col], fontsize=table_fs,
+                                                fontweight='normal') / fig_barplot.get_axes()[0].get_position().width
+                    if word_width > col_widths[col]:
+                        col_widths[col] = word_width
         # Remove all borders and set column widths
         for (_, col), cell in this_table.get_celld().items():
             cell.set_linewidth(0)
