@@ -43,6 +43,7 @@ if return_objs[1] is not None:
                 'bw_adjust': (3.0, 3.0),  # histogram smoothing parameters (default = 1, > 1 = smoother)
                 'sharex': False,
                 'table_props': {'fontsize': 20, 'ncols': 2, 'scale': (1, 2), 'nudge': (0.01, 0)},
+                'barplot_ymax': 1.02
             }
             plot_hist_overlays(
                 two_samples=tuple(samples[:, groups[group_pair[i]]] for i in range(2)),
