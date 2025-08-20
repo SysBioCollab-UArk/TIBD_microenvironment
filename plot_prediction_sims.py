@@ -23,17 +23,17 @@ kwargs = {'obs_labels': obs_labels, 'show_plots': True,
 _, (param_samples, param_groups, param_labels), _ = plot_pydream_output(dirpath, calibrator, **kwargs)
 
 #### Run drug prediction simulations using the 'plot_timecourses' function ####
-sim_protocols = [tumor_injection, tumor_bisphos_injection]
+sim_protocols = calibrator.sim_protocols + [tumor_bisphos_injection]
 tspans = [np.linspace(0, 28, 281)] * len(sim_protocols)
-samples_idxs = [calibrator.samples_idxs[0]] * len(sim_protocols)
+samples_idxs = calibrator.samples_idxs + [calibrator.samples_idxs[0]]
 # plot all observables for all experiments, even if there's no data for them
 observables = [calibrator.observables[0]] * len(sim_protocols)
 xlabel = 'time (day)'
 ylabels = [['amount (relative % BV/TV)'] + ['amount (fM)'] * 3] * len(sim_protocols)
-leg_labels = [['bone density: -ZA', 'osteoclasts: -ZA', 'osteoblasts: -ZA', 'tumor cells: -ZA'],
-              ['bone density: +ZA', 'osteoclasts: +ZA', 'osteoblasts: +ZA', 'tumor cells: +ZA']]
+# leg_labels = [['bone density: -ZA', 'osteoclasts: -ZA', 'osteoblasts: -ZA', 'tumor cells: -ZA'],
+#               ['bone density: +ZA', 'osteoclasts: +ZA', 'osteoblasts: +ZA', 'tumor cells: +ZA']]
 
 calibrator.plot_timecourses(model, tspans, sim_protocols, param_samples, calibrator.parameter_idxs,
                             observables=observables, exp_data=calibrator.raw_data, samples_idxs=samples_idxs,
-                            show_plot=True, xlabel=xlabel, ylabels=ylabels, leg_labels=leg_labels,
+                            show_plot=True, xlabel=xlabel, ylabels=ylabels, # leg_labels=leg_labels,
                             **kwargs['plot_tc_args'])

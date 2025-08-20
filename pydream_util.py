@@ -9,6 +9,7 @@ import warnings
 import glob
 import pysb
 from collections.abc import Iterable
+import re
 
 
 def is_num_pair(obj):
@@ -397,9 +398,13 @@ def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=No
         warnings.warn("No drug doses or timecourse IDs were passed to `plot_from_simdata`")
 
 
-def plot_pydream_output(dirpath, calibrator, **kwargs):
+def plot_pydream_output(dirpath, calibrator, max_iter=None, **kwargs):
     logps_files = glob.glob(os.path.join(dirpath, 'dreamzs*logps*'))
     samples_files = glob.glob(os.path.join(dirpath, 'dreamzs*params*'))
+    if max_iter is not None:
+        print('max iterations = ', max_iter)
+        logps_files = [f for f in logps_files if int(re.search(r'_(\d+).npy$', f).group(1)) <= max_iter]
+        samples_files = [f for f in samples_files if int(re.search(r'_(\d+).npy$', f).group(1)) <= max_iter]
     return calibrator.create_figures(logps_files, samples_files, save_plots=dirpath, **kwargs)
 
 

@@ -4,13 +4,14 @@ import os
 from matplotlib.ticker import ScalarFormatter
 
 
-def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True, **kwargs):
+def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.csv', sim_data_filename='SIM_DATA.csv',
+             expt_data_only=True, **kwargs):
 
     # process kwargs
     sharex = kwargs.get('sharex', 'all')
 
     # Experimental data
-    expt_data_file = os.path.join(path, 'TIBD_PopD_Data.csv')  # 'TIBD_Johnson2011.csv')
+    expt_data_file = os.path.join(path, expt_data_filename)  # 'TIBD_Johnson2011.csv')
     expt_data_raw = np.genfromtxt(expt_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
     print(expt_data_raw.dtype.names)
     expt_ids = list(dict.fromkeys(expt_data_raw['expt_id']))
@@ -36,7 +37,7 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True, **kwargs):
     print('----------')
 
     # Simulation data
-    sim_data_file = os.path.join(path, 'SIM_DATA.csv')
+    sim_data_file = os.path.join(path, sim_data_filename)
     sim_data_raw = np.genfromtxt(sim_data_file, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
     print(sim_data_raw.dtype.names)
     sim_ids = list(dict.fromkeys(sim_data_raw['sim_id']))
@@ -192,7 +193,7 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_only=True, **kwargs):
 
 if __name__ == '__main__':
 
-    base_path = os.path.join('MODELS', 'SAVE', 'Leonard')
+    base_path = os.path.join('MODELS', 'SAVE', 'Hrishi')  # 'Leonard')
 
     directories = [
         # 'A_Errors_Orig_ALL',
@@ -210,7 +211,8 @@ if __name__ == '__main__':
         # 'Johnson2011_PBS_ZA_C_Errors_5pct_BONE_10pct_TUMOR_28_Orig_TUMOR_14_21_Bkgrd_0_to_28',
         # 'Johnson2011_PBS_ZA',
         # 'Johnson2011_PBS_ZA_10pct_15pct',
-        'Bennett2024_Johnson2011_stderr_2abs'
+        # 'Bennett2024_Johnson2011_stderr_2abs',
+        'Bennett2024_Johnson2011_stderr_5abs_2abs_model_v2'
     ]
 
     A = 'Bennett2024'
@@ -218,13 +220,16 @@ if __name__ == '__main__':
     C = 'Johnson2011 (ZA-Tumor)'
     D = 'Johnson2011 (ZA-NoTumor)'
 
+    expt_data_filename = os.path.join('DATA', 'TIBD_PopD_Data.csv')
+
     for d in directories:
         path = os.path.join(base_path, d)
 
-        make_fig(path, [A, B, C, D], 'Figure_ABCD', expt_data_only=True)
-        make_fig(path, [A, B], 'Figure_AB', expt_data_only=False)
-        make_fig(path, [A, '4'], 'Figure_A_ZA', expt_data_only=False)
-        make_fig(path, [A, C, '4'], 'Figure_AC_ZA', expt_data_only=False, sharex='all')
+        make_fig(path, [A, B, C, D], 'Figure_ABCD', expt_data_filename=expt_data_filename,
+                 expt_data_only=True)
+        # make_fig(path, [A, B], 'Figure_AB', expt_data_only=False)
+        # make_fig(path, [A, '4'], 'Figure_A_ZA', expt_data_only=False)
+        # make_fig(path, [A, C, '4'], 'Figure_AC_ZA', expt_data_only=False, sharex='all')
         # make_fig(path, [B, C], 'Figure_B_C', expt_data_only=False)
         # make_fig(path, [B], 'Figure_B', expt_data_only=False)
 

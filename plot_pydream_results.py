@@ -1,7 +1,7 @@
 import os
 import sys
 # import the run_<...>_pydream file from the directory where you ran PyDREAM from
-dirpath = os.path.join('MODELS', 'SAVE', 'Leonard', 'Bennett2024_Johnson2011_stderr_2abs')
+dirpath = os.path.join('MODELS', 'SAVE', 'Hrishi', 'Bennett2024_Johnson2011_stderr_5abs_2abs_model_v2')
 sys.path.insert(0, dirpath)
 from run_tibd_pydream import *
 from pydream_util import plot_pydream_output
@@ -25,7 +25,7 @@ kwargs = {'obs_labels': obs_labels, 'show_plots': True,
           'plot_tc_args': {'separate_plots': False, 'save_sim_data': True},
           'which_plots': 2}  # 1: only log-likelihoods, 2: log-likelihoods & param histograms, 3 or 'all': all plots
 
-return_objs = plot_pydream_output(dirpath, calibrator, **kwargs)
+return_objs = plot_pydream_output(dirpath, calibrator, max_iter=500000, **kwargs)
 
 # if parameter distributions were generated, check if there are multiple groups to overlap and compare
 group_labels = ('Bone-Metastatic', 'Parental', 'ALL')  # the last label should be 'ALL'
@@ -42,7 +42,7 @@ if return_objs[1] is not None:
                 'fontsizes': {'labels': 20, 'ticks': 18, 'title': 18, 'legend': 14},
                 'bw_adjust': (3.0, 3.0),  # histogram smoothing parameters (default = 1, > 1 = smoother)
                 'sharex': False,
-                'table_props': {'fontsize': 20, 'ncols': 2, 'scale': (1, 2), 'nudge': (0.01, 0)},
+                'table_props': {'fontsize': 20, 'ncols': 2, 'scale': (0.8, 2), 'nudge': (0.01, 0)},
                 'barplot_ymax': 1.02
             }
             plot_hist_overlays(

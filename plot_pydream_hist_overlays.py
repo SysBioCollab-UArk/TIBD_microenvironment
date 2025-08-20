@@ -89,7 +89,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     table_ncols = table_props.get('ncols', 2)
     table_scale = table_props.get('scale', None)  # stretch/squeeze embedded table
     table_nudge = table_props.get('nudge', None)  # move table horizontally and/or vertically
-    barplot_ymax = table_props.get('barplot_ymax', None)
+    barplot_ymax = kwargs.get('barplot_ymax', None)
 
     ### Plot histogram distances with self distances ###
     n_params = len(param_labels)
@@ -216,6 +216,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         for (_, col), cell in this_table.get_celld().items():
             cell.set_linewidth(0)
             cell.set_width(col_widths[col])
+            cell.PAD = 0.01
 
         return this_table
 
