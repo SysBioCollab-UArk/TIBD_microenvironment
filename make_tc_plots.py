@@ -221,16 +221,18 @@ if __name__ == '__main__':
     D = 'Johnson2011 (ZA-NoTumor)'
 
     expt_data_filename = os.path.join('DATA', 'TIBD_PopD_Data.csv')
+    sim_data_filename = 'SIM_DATA_fits.csv'
 
     for d in directories:
         path = os.path.join(base_path, d)
 
         make_fig(path, [A, B, C, D], 'Figure_ABCD', expt_data_filename=expt_data_filename,
-                 expt_data_only=True)
+                 sim_data_filename=sim_data_filename, expt_data_only=True)
         # make_fig(path, [A, B], 'Figure_AB', expt_data_only=False)
         # make_fig(path, [A, '4'], 'Figure_A_ZA', expt_data_only=False)
         # make_fig(path, [A, C, '4'], 'Figure_AC_ZA', expt_data_only=False, sharex='all')
-        # make_fig(path, [B, C], 'Figure_B_C', expt_data_only=False)
+        make_fig(path, [B, C], 'Figure_B_C', expt_data_filename=expt_data_filename,
+                 sim_data_filename=sim_data_filename, expt_data_only=False)
         # make_fig(path, [B], 'Figure_B', expt_data_only=False)
 
         # ax = plt.gca()
