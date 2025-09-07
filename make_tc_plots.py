@@ -104,11 +104,13 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.cs
     # create 2nd y-axis for Johnson et al. (2011) tumor data
     axs_tumor2 = axs[1, 1].twinx()
 
-    # if the Johnson et al. (2011) tumor data isn't included, turn off the y-tick labels
+    # if either the Johnson et al. (2011) or Bennett (2024) tumor data isn't included, turn off the y-tick labels
     j_tumor_pairs = [('Tumor_tot', 'Johnson2011 (PBS-Tumor)'), ('Tumor_tot', 'Johnson2011 (ZA-Tumor)')]
+    b_tumor_pairs = [('Tumor_tot', 'Bennett2024'), ('Tumor_tot', '4')]
     obs_sim_pairs = [(obs_name, sim_expt_id) for obs_name in obs_names for sim_expt_id in sim_expt_ids]
     ax2_color = 'black'
-    if not any(j_tumor_pair in obs_sim_pairs for j_tumor_pair in j_tumor_pairs):
+    if not any(j_tumor_pair in obs_sim_pairs for j_tumor_pair in j_tumor_pairs) or \
+            not any(b_tumor_pair in obs_sim_pairs for b_tumor_pair in b_tumor_pairs):
         axs_tumor2.set_yticks([0, 40])
         ax2_color = 'white'
 
@@ -118,7 +120,7 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.cs
         axs[row, col].set_title(obs_labels[obs_name], fontweight='bold', fontsize=14)
         for sim_expt_id in sim_expt_ids:
             # plot Johnson et al. (2011) tumor data on 2nd y-axis
-            ax = axs_tumor2 if (obs_name, sim_expt_id) in j_tumor_pairs else axs[row, col]
+            ax = axs_tumor2 if (obs_name, sim_expt_id) in j_tumor_pairs and ax2_color == 'black' else axs[row, col]
             # check if experimental data exists
             expt_time = [] if sim_expt_id not in expt_data.keys() \
                 else [d['time'] for d in expt_data[sim_expt_id] if d['observable'] == obs_name]
@@ -130,10 +132,10 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.cs
                 ax.fill_between(sim_time, yval_min, yval_max, alpha=0.25, label=legend_labels[sim_expt_id],
                                            color=colors[sim_expt_id])
                 # add arrows pointing to the left and right if Bennett2024 and Johnson2011 tumor data are both present
-                if obs_name == 'Tumor_tot':
+                if obs_name == 'Tumor_tot' and ax2_color == 'black':
                     arr_length = 0.18
                     if sim_expt_id == 'Johnson2011 (PBS-Tumor)':
-                        ax.annotate('', xy=(0.98, 0.55), xytext=(0.98-arr_length, 0.55), xycoords='axes fraction',
+                        ax.annotate('', xy=(0.98, 0.5), xytext=(0.98-arr_length, 0.5), xycoords='axes fraction',
                                     arrowprops=dict(arrowstyle='->', color=colors[sim_expt_id], linewidth=2))
                     elif sim_expt_id == 'Johnson2011 (ZA-Tumor)':
                         ax.annotate('', xy=(0.98, 0.2), xytext=(0.98-arr_length, 0.2), xycoords='axes fraction',
@@ -162,8 +164,9 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.cs
             col = 0
             row += 1
     # adjust axis formats
-    axs[1, 1].yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-    axs[1, 1].ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+    if any(b_tumor_pair in obs_sim_pairs for b_tumor_pair in b_tumor_pairs):
+        axs[1, 1].yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+        axs[1, 1].ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 
     axs_tumor2.tick_params(axis='y', which='major', labelsize=14, color=ax2_color, labelcolor=ax2_color)
 
@@ -220,20 +223,22 @@ if __name__ == '__main__':
     C = 'Johnson2011 (ZA-Tumor)'
     D = 'Johnson2011 (ZA-NoTumor)'
 
-    expt_data_filename = os.path.join('DATA', 'TIBD_PopD_Data.csv')
-    sim_data_filename = 'SIM_DATA_fits.csv'
+    common_opts = {'expt_data_filename': os.path.join('DATA', 'TIBD_PopD_Data.csv'),
+                   'sim_data_filename': 'SIM_DATA_preds.csv'}
+
+    plot_opts = [
+        # {'sim_expt_ids': [A, B, C, D], 'fig_name': 'Fig_all_expts', 'expt_data_only': True},
+        {'sim_expt_ids': [A, B], 'fig_name': 'Fig_expts_wo_ZA', 'expt_data_only': False},
+        {'sim_expt_ids': [A, '4'], 'fig_name': 'Fig_boneMet_w_wo_ZA', 'expt_data_only': False},
+        {'sim_expt_ids': [A, C, '4'], 'fig_name': 'Fig_boneMet_w_wo_ZA_par_w_ZA', 'expt_data_only': False},
+        # {'sim_expt_ids': [B, C], 'fig_name': 'Fig_par_w_wo_ZA', 'expt_data_only': False},
+        # {'sim_expt_ids': [B], 'fig_name': 'Fig_par_wo_ZA', 'expt_data_only': False}
+    ]
 
     for d in directories:
         path = os.path.join(base_path, d)
-
-        make_fig(path, [A, B, C, D], 'Figure_ABCD', expt_data_filename=expt_data_filename,
-                 sim_data_filename=sim_data_filename, expt_data_only=True)
-        # make_fig(path, [A, B], 'Figure_AB', expt_data_only=False)
-        # make_fig(path, [A, '4'], 'Figure_A_ZA', expt_data_only=False)
-        # make_fig(path, [A, C, '4'], 'Figure_AC_ZA', expt_data_only=False, sharex='all')
-        make_fig(path, [B, C], 'Figure_B_C', expt_data_filename=expt_data_filename,
-                 sim_data_filename=sim_data_filename, expt_data_only=False)
-        # make_fig(path, [B], 'Figure_B', expt_data_only=False)
+        for opts in plot_opts:
+            make_fig(path, **opts, **common_opts)
 
         # ax = plt.gca()
         # ax.set_ylim(top=5)
