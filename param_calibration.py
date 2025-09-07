@@ -487,20 +487,18 @@ class ParameterCalibration(object):
             nrows = math.ceil(ndims/ncols)
             figsize = (0.65 * ncols * 6.4, 0.5 * nrows * 4.8) if kwargs.get('figsize', None) is None \
                 else kwargs['figsize'] if is_num_pair(kwargs['figsize']) else kwargs['figsize'][n]
-            # create figure
+            # create figures
             colors = sns.color_palette(n_colors=ndims)
+            # aggregated parameter distributions
             fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                     figsize=figsize)
-            #####
+            # parameter distributions for each chain
             fig2, axs2 = plt.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=True,
                                       figsize=figsize)
-            #####
             if nrows == 1 and ncols == 1:
-                axs = np.array([[axs]])  # make it an np.ndarray
-                #####
+                axs = np.array([[axs]])  # make it a np.ndarray
                 axs2 = np.array([[axs2]])
-                #####
-            # save the fig and axes for later
+            # save the figs and axes for later
             fig_axs_list.append((fig, axs.flatten()))
             fig2_axs2_list.append((fig2, axs2.flatten()))
             # loop over parameters
@@ -513,41 +511,38 @@ class ParameterCalibration(object):
                 print(group[dim], end=end_line)
                 sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col],
                             bw_adjust=bw_adjust)
-                axs[row][col].set_yticklabels([])
-                axs[row][col].set_ylabel(None)
-                axs[row][col].set_title(label[dim], fontsize=labelsize)
-                axs[row][col].tick_params(axis='x', labelsize=labelsize)
-                ##### TODO
+                # loop over chains
                 for chain in range(len(chains)):
                     sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col],
-                            bw_adjust=bw_adjust)
-                    #, label='chain %d' % chains[chain])
-                # axs2[row][col].legend(loc=0)
-                axs2[row][col].set_yticklabels([])
-                axs2[row][col].set_ylabel(None)
-                axs2[row][col].set_title(label[dim], fontsize=labelsize)
-                axs2[row][col].tick_params(axis='x', labelsize=labelsize)
-                #####
+                            bw_adjust=bw_adjust, label='%d' % chains[chain] if (row, col) == (0, 0) else None)
+                # set axis parameters and titles
+                for ax in (axs[row][col], axs2[row][col]):
+                    ax.set_yticklabels([])
+                    ax.set_ylabel(None)
+                    ax.set_title(label[dim], fontsize=labelsize)
+                    ax.tick_params(axis='x', labelsize=labelsize)
+                # update column and row
                 col += 1
                 if col % ncols == 0:
                     col = 0
                     row += 1
+            # add global x- and y-labels
             fontsize = 10 * max(1, (3/5 * np.ceil(nrows / 2))) if kwargs.get('fontsize', None) is None \
                 else kwargs['fontsize'] if isinstance(kwargs['fontsize'], int) else kwargs['fontsize'][n]
-            fig.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
-            fig.supylabel('Density', fontsize=fontsize)
-            ##### TODO
-            fig2.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
-            fig2.supylabel('Density', fontsize=fontsize)
-            #####
+            for f in (fig, fig2):
+                f.supxlabel(r'log$_{10}$ value', fontsize=fontsize)
+                f.supylabel('Density', fontsize=fontsize)
             # delete extra plots
             if col > 0:
                 while col < ncols:
                     fig.delaxes(axs[row][col])
-                    ##### TODO
                     fig2.delaxes(axs2[row][col])
-                    #####
                     col += 1
+            # add a legend to fig2
+            leg2 = fig2.legend(loc='outside right upper', frameon=False, fontsize=0.8 * labelsize, title='Chains',
+                               title_fontsize=0.8 * labelsize, labelspacing=0.25, borderpad=0.8)
+            for line in leg2.get_lines():
+                line.set_linewidth(3)
 
         # Make x- and y-axis limits identical for filled and unfilled parameter distribution plots
         x_min, x_max, y_min, y_max = ([], [], [], [])
@@ -573,10 +568,9 @@ class ParameterCalibration(object):
         n = 0
         for (_, axs), (_, axs2) in zip(fig_axs_list, fig2_axs2_list):
             for ax, ax2 in zip(axs, axs2):
-                ax.set_xlim(x_min[n], x_max[n])
-                ax.set_ylim(y_min[n], y_max[n])
-                ax2.set_xlim(x_min[n], x_max[n])
-                ax2.set_ylim(y_min[n], y_max[n])
+                for axis in (ax, ax2):
+                    axis.set_xlim(x_min[n], x_max[n])
+                    axis.set_ylim(y_min[n], y_max[n])
                 n += 1
 
         if save_plot is not False:
@@ -584,10 +578,9 @@ class ParameterCalibration(object):
             fname_base = 'fig_PyDREAM_histograms'
             fname2_base = fname_base + '_chains'
             for n, ((fig, _), (fig2, _)) in enumerate(zip(fig_axs_list, fig2_axs2_list)):
-                filename = fname_base if len(groups) == 1 else fname_base + '_group_%d' % n
-                fig.savefig(os.path.join(filepath, filename))
-                filename2 = fname2_base if len(groups) == 1 else fname2_base + '_group_%d' % n
-                fig2.savefig(os.path.join(filepath, filename2))
+                for f, fname in zip((fig, fig2), (fname_base, fname2_base)):
+                    filename = fname if len(groups) == 1 else fname + '_group_%d' % n
+                    f.savefig(os.path.join(filepath, filename))
 
         if show_plot:
             plt.show()
