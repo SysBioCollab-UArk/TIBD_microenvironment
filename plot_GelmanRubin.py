@@ -26,10 +26,10 @@ def plot_GR_metrics(directory, threshold=1.2, par_names=None, only_unconverged=F
     GR_and_label = [(GR_array, 'par%d' % i if par_names is None else par_names[i])
                     for i, GR_array in enumerate(GR) if not only_unconverged or GR_array[-1] >= threshold]
 
-    # only proceed if len(GR_and_label) > 0 (won't be true if run is converged and 'only_converged'=True)
+    # only proceed if len(GR_and_label) > 0 (won't be true if run is converged and 'only_unconverged'=True)
     if len(GR_and_label) == 0:
-        print("All parameters are converged and 'only_converged' is False. If want to plot GR metrics for all "
-              "parameters for all iterations, set it to True.")
+        print("All parameters are converged and 'only_unconverged' is True. If want to plot GR metrics for all "
+              "parameters for all iterations, set 'only_unconverged' to False.")
     else:
         max_GR = max([GR[-1] for GR, i in GR_and_label])
         ymax = math.ceil(max_GR * 10) / 10 + 0.1
