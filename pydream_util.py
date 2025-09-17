@@ -26,6 +26,7 @@ def is_num_pair(obj):
             all(isinstance(x, (int, float)) for x in items)
     )
 
+
 # convert None -> nan
 def ensure_float(val):
     return np.array([val], dtype=float)[0]
@@ -181,9 +182,9 @@ def get_sim_and_expt_data(path, run_pydream_filename):
     module = importlib.import_module(str(import_string))  # import the module
 
     # get the path to the experimental data file referenced in the run_<...>_pydream.py file that's in the path
-    exp_data_file = os.path.normpath(module.exp_data_file) if os.path.isabs(module.exp_data_file) else \
-        os.path.normpath(os.path.join(path, module.exp_data_file))
-    expt_data = pd.read_csv(exp_data_file) if os.path.exists(exp_data_file) else None
+    expt_data_file = os.path.normpath(module.expt_data_file) if os.path.isabs(module.expt_data_file) else \
+        os.path.normpath(os.path.join(path, module.expt_data_file))
+    expt_data = pd.read_csv(expt_data_file) if os.path.exists(expt_data_file) else None
     print('expt_data:', list(expt_data.columns) if expt_data is not None else None)
 
     sim_data_file = os.path.join(path, 'SIM_DATA.csv')
