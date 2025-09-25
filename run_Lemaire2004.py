@@ -4,9 +4,24 @@ from pysb.util import alias_model_components
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from util import get_exp_data
 from MODULES.Lemaire2004 import create_model_elements as create_Lemaire_ME
 from MODULES.Harris2024 import create_model_elements as create_Harris_ME
+
+
+def get_exp_data(filepath):
+    data = np.genfromtxt(filepath, dtype=None, delimiter=',', names=True, encoding="utf_8_sig")
+    cond_cellTypes = np.unique([(d['Condition'], d['CellType']) for d in data], axis=0)
+    return_data = {}
+    for cc in cond_cellTypes:
+        time = [d['Week'] for d in data if d['Condition'] == cc[0] and d['CellType'] == cc[1]]
+        weeks = np.unique(time)
+        conc = [d['Concentration'] for d in data if d['Condition'] == cc[0] and d['CellType'] == cc[1]]
+        avg_conc = [np.mean([conc[i] for i in range(len(conc)) if time[i] == w]) for w in weeks]
+        se_conc = [[conc[i] for i in range(len(conc)) if time[i] == w] for w in weeks]
+        se_conc = [np.std(x, ddof=1) / np.sqrt(len(x)) for x in se_conc]
+        return_data[(cc[0], cc[1])] = (weeks, avg_conc, se_conc)
+    return return_data
+
 
 # experimental data
 exp_data = get_exp_data(os.path.join('OLD', 'Mouse_Data_May2024.csv'))
@@ -117,7 +132,7 @@ ylabels = ['concentration (pM)', 'concentration (pM)', 'relative BV/TV', 'concen
 scales = [1/1000, 1/1000, 1/Bone_0.value, 1/1000]
 for obs, ref, leg_label, color, ylabel, scale in zip(obs_to_plot, refs, leg_labels, colors, ylabels, scales):
     print(obs)
-    plt.figure()
+    plt.figure(constrained_layout=True)
     for i in range(len(obs)):
         add_label = True
         for tspan, output, ls in zip(tspans, outputs, linestyles):
@@ -136,7 +151,6 @@ for obs, ref, leg_label, color, ylabel, scale in zip(obs_to_plot, refs, leg_labe
     plt.xlim(left=0, right=4)
     loc = 'upper left' if 'Tumor_tot' in obs else 0
     plt.legend(loc=loc)
-    plt.tight_layout()
 
     # Save plot as PDF
     if SAVE_FIGS:
