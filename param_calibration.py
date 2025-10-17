@@ -290,8 +290,9 @@ class ParameterCalibration(object):
                 _plot_pd_args['groups'] = param_groups
             _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
 
-            param_samples = self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
-            return_objects[1] = param_samples, param_groups, param_labels
+            param_samples, log_ps = \
+                self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
+            return_objects[1] = param_samples, log_ps, param_groups, param_labels
 
         if which_plots > 2:
             print('Plotting time courses')
@@ -378,6 +379,7 @@ class ParameterCalibration(object):
         for chain in chains:
             log_ps.append(np.concatenate(tuple(np.load(
                 os.path.join(path, '%s_chain_%d_%d.npy' % (prefix, chain, it))).flatten() for it in iterations)))
+            log_ps[-1][np.isinf(log_ps[-1])] = np.nan
         log_ps = np.array(log_ps)
 
         # plot the likelihoods
@@ -390,11 +392,11 @@ class ParameterCalibration(object):
         for i, chain in enumerate(chains):
             plt.plot(range(len(log_ps[i])), log_ps[i], label='chain %d' % chain)
             log_ps_max = np.max(log_ps[i]) if log_ps_max < np.max(log_ps[i]) else log_ps_max
-            log_ps_mean += np.mean(log_ps[i][burnin:]) / len(chains)
-            log_ps_var += np.var(log_ps[i][burnin:]) / len(chains)  # mean of the variances, but that's fine
+            log_ps_mean += np.nanmean(log_ps[i][burnin:]) / len(chains)
+            log_ps_var += np.nanvar(log_ps[i][burnin:]) / len(chains)  # mean of the variances, but that's fine
         # plot the mean over all chains
         steps = list(np.arange(0, len(log_ps[0]), len(log_ps[0]) // 100))
-        plt.plot(steps, np.mean(log_ps, axis=0)[steps], 'k', lw=2, label='average')
+        plt.plot(steps, np.nanmean(log_ps, axis=0)[steps], 'k', lw=2, label='average')
         # plt.axvline()
         top = np.ceil(log_ps_mean + 5 * np.sqrt(log_ps_var))
         bottom = np.floor(log_ps_mean - 20 * np.sqrt(log_ps_var))
@@ -451,23 +453,28 @@ class ParameterCalibration(object):
                            key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
             samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
 
-        # if a likelihood cutoff is defined, load the likelihoods and remove samples that fall below the cutoff
+        # load the log-likelihoods
+        log_ps_chain = []
+        for chain in chains:
+            # get files and sort them numerically by number of iterations (using key=lambda function)
+            files = sorted([file.replace('sampled_params', 'logps')
+                            for file in sample_files if re.search(r'chain_%d' % chain, file)],
+                           key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
+            log_ps_chain.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
+            log_ps_chain[-1][np.isinf(log_ps_chain[-1])] = np.nan
+        log_ps = np.concatenate(tuple(log_ps_chain[chain][burnin:] for chain in range(len(chains))))
+
+        # if a likelihood cutoff is defined, remove samples that fall below the cutoff
         if cutoff is not None:
-            log_ps_chain = []
-            for chain in chains:
-                # get files and sort them numerically by number of iterations (using key=lambda function)
-                files = sorted([file.replace('sampled_params', 'logps')
-                                for file in sample_files if re.search(r'chain_%d' % chain, file)],
-                               key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
-                log_ps_chain.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
-            log_ps = np.concatenate(tuple(log_ps_chain[chain][burnin:] for chain in range(len(chains))))
-            log_ps_mean = np.mean(log_ps)
-            log_ps_sdev = np.std(log_ps)
+            log_ps_mean = np.nanmean(log_ps)
+            log_ps_sdev = np.nanstd(log_ps)
             # get indices for samples with log-likelihood > cutoff
             for chain in range(len(chains)):
                 keep_idxs = [i for i in range(burnin, len(samples_chain[chain]))
                              if log_ps_chain[chain][i] > log_ps_mean - cutoff * log_ps_sdev]
                 samples_chain[chain] = samples_chain[chain][keep_idxs]
+                log_ps_chain[chain] = log_ps_chain[chain][keep_idxs]
+            log_ps = np.concatenate(tuple(log_ps_chain[chain] for chain in range(len(chains))))
 
         # combine all samples together
         samples = np.concatenate(tuple(samples_chain[chain] for chain in range(len(chains))))
@@ -585,7 +592,7 @@ class ParameterCalibration(object):
         if show_plot:
             plt.show()
 
-        return samples  # these samples have been trimmed based on log-likelihood values
+        return samples, log_ps  # these samples have been trimmed based on log-likelihood values
 
 
     @staticmethod
