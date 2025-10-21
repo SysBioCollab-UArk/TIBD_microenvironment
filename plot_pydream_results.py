@@ -30,7 +30,7 @@ return_objs = plot_pydream_output(dirpath, calibrator, max_iter=500000, **kwargs
 # if parameter distributions were generated, check if there are multiple groups to overlap and compare
 group_labels = ('Bone-Metastatic', 'Parental', 'ALL')  # the last label should be 'ALL'
 if return_objs[1] is not None:
-    samples, groups, param_labels = return_objs[1]
+    samples, _, groups, param_labels = return_objs[1]
     groups_idxs = np.arange(len(groups))
     group_pairs = set(tuple(sorted((a, b))) for a in groups_idxs for b in groups_idxs if a != b)
     # if there's only one group, there will be no pairs and the code won't proceed into the 'for' loop
