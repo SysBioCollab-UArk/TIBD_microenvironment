@@ -296,6 +296,7 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
                                     title=expt_doses_dict.get('title', None), xlabel=expt_doses_dict.get('xlabel'),
                                     ylabel=y_label)
                     suffix[obs].append(expt.split('_'))  # for the filename
+                    # plt.xticks(conc, conc)  # set the x-ticks to the experimental values TODO
 
             # complete and save the figures for each observable
             for obs in all_observables:
@@ -465,6 +466,8 @@ def detect_equilibrium(sim, tspan_linspace, rtol=1e-6, show_plot=False):
 
 def remove_unneeded_observables(model, obs_to_keep=None):
     obs_to_keep = [] if obs_to_keep is None else [obs_to_keep] if isinstance(obs_to_keep, str) else list(obs_to_keep)
+    # remove any entries in 'obs_to_keep' that aren't observable names (e.g., expression names)
+    obs_to_keep = [obs_name for obs_name in obs_to_keep if obs_name in [obs.name for obs in model.observables]]
     # get names of Observables in Expressions
     obs_names = []
     for expr in model.expressions:
@@ -472,5 +475,6 @@ def remove_unneeded_observables(model, obs_to_keep=None):
         obs = [s for s in symbols if isinstance(s, pysb.core.Observable)]
         obs_names += [o.name for o in obs if o.name not in obs_names]
     obs_names = list(set(obs_names + obs_to_keep))  # create a set and then cast back to a list to remove duplicates
+    # create the new set of observables
     new_observables = pysb.core.ComponentSet([model.observables[obs_name] for obs_name in obs_names])
     model.observables = new_observables
