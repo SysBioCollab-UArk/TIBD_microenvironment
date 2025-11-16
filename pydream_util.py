@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from math import isclose
-import importlib
+import importlib.util
+import uuid
 import pandas as pd
 import math
 import warnings
@@ -177,9 +178,13 @@ def round_down_nice(x):
 def get_sim_and_expt_data(path, run_pydream_filename):
 
     # import everything from run_<...>_pydream.py file that's in the path
-    run_pydream_file = os.path.join(path, run_pydream_filename)
-    import_string = run_pydream_file.replace('/', '.').replace('\\', '.').rstrip('.py')
-    module = importlib.import_module(str(import_string))  # import the module
+    if not run_pydream_filename.endswith(".py"):
+        run_pydream_filename += ".py"
+    run_pydream_file = os.path.normpath(os.path.join(path, run_pydream_filename))
+    module_name = f"_dynamic_{uuid.uuid4().hex}"  # unique name (arbitrary)
+    spec = importlib.util.spec_from_file_location(module_name, run_pydream_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
 
     # get the path to the experimental data file referenced in the run_<...>_pydream.py file that's in the path
     expt_data_file = os.path.normpath(module.expt_data_file) if os.path.isabs(module.expt_data_file) else \
