@@ -76,9 +76,11 @@ class ParameterCalibration(object):
             )
         )
 
-        # for a given experiment, there may be missing data points, so create masks that indicate for each observable in
-        # each experiment which time points we have data for
+        # For a given experiment, there may be missing data points, so create masks that indicate for each observable in
+        # each experiment which time points we have data for.
+        # Also, if scaling by values at certain time points, exclude those points from the likelihood function
         self.tspan_masks = []
+        self.likelihood_exclude = {}
         for expt, obs, tspan, protocol in zip(self.experiments, self.observables, self.tdata, self.sim_protocols):
             self.tspan_masks.append({})
             for name in obs:
@@ -90,12 +92,13 @@ class ParameterCalibration(object):
                     for j in range(len(tdata)):
                         if tspan[i] in tdata[j]:
                             self.tspan_masks[-1][name][j][i] = True
-            # if scaling by values at certain time points, add masks to exclude those points from likelihood calculation
+            # if scaling by values at certain time points, exclude them from the likelihood calculation
             if 'scale_by_eidx_time' in vars(protocol):
                 for scale_obs in protocol.scale_by_eidx_time.keys():
                     e_idx = protocol.scale_by_eidx_time[scale_obs]['eidx']  # expt index
                     t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs]['time'])  # time pt index
-                    self.tspan_masks[-1][scale_obs][e_idx][t_idx] = False
+                    # self.tspan_masks[-1][scale_obs][e_idx][t_idx] = False
+                    self.likelihood_exclude[(scale_obs, e_idx)] = t_idx
 
         # create the list of parameters to be sampled and save their indices
         priors = {} if priors is None else priors
@@ -166,7 +169,12 @@ class ParameterCalibration(object):
             for obs in self.like_data[n].keys():
                 if np.any(np.isnan(output[obs])):  # return -inf if simulation returns NaNs
                     return -np.inf
-                self.logp_data[n] += np.sum(self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]]))
+                logps = self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]])
+                # If scaling by a time point in this experiment for this observable, remove it so it doesn't get used in
+                # the log-likelihood calculation
+                if (obs, n) in self.likelihood_exclude.keys():
+                    logps = np.delete(logps, self.likelihood_exclude[(obs, n)])
+                self.logp_data[n] += np.sum(logps)
             if np.isnan(self.logp_data[n]):  # return -inf if logp is NaN
                 return -np.inf
         return sum(self.logp_data)
