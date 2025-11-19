@@ -106,13 +106,17 @@ class ParameterCalibration(object):
                     # index to scale by (which we are excluding)
                     scale_by_idx = sum([m for mask in masks[:e_idx] for m in mask]) + t_idx
                     self.likelihood_exclude[(scale_obs, expt_idx)] = scale_by_idx
-                    # ### Example ###
-                    # masks = [[False, True], [True, True], [True, True], [False, True]]
+                    # ##### EXAMPLE #####
+                    # expt = 'expt_X'
+                    # expt_idx = experiments.index('expt_X') = 1
+                    # obs = 'obs_Y'
+                    # tspan_masks[1]['obs_Y'] = [[False, True], [True, True], [True, True], [False, True]]
                     # e_idx = 2
                     # t_idx = 1
                     # masks[:2] = [[False, True], [True, True]]
                     # sum(masks[:2]) = 3
                     # scale_by_idx = sum(masks[:2]) + t_idx = 4
+                    # likelihood_exclude[('obs_Y', 1)] = 4
 
         # create the list of parameters to be sampled and save their indices
         priors = {} if priors is None else priors
@@ -126,13 +130,13 @@ class ParameterCalibration(object):
                 self.parameter_idxs.append(i)
                 p_value = self.model.parameters[p.name].value
                 prior = default_prior if p.name not in list(priors.keys()) else priors[p.name]
-                print("Will sample parameter {} with {} prior around log10({}) = {}".format(p.name, prior, p_value,
-                                                                                            np.log10(p_value)))
+                print("Will sample parameter {} with {} prior around log10({}) = {}".\
+                      format(p.name, prior, p_value, np.log10(p_value)))
                 # loop over groups of experiments (default is one group with all experiments)
                 for group in param_expts_map.get(p.name, [[expt for expt in self.experiments]]):
                     if prior[0] == 'uniform':
-                        self.sampled_params_list.append(SampledParam(uniform, loc=np.log10(p_value) - 0.5 * prior[1],
-                                                                     scale=prior[1]))
+                        self.sampled_params_list.append(
+                            SampledParam(uniform, loc=np.log10(p_value) - 0.5 * prior[1], scale=prior[1]))
                     elif prior[0] == 'norm':
                         self.sampled_params_list.append(SampledParam(norm, loc=np.log10(p_value), scale=prior[1]))
                     else:
@@ -188,7 +192,6 @@ class ParameterCalibration(object):
                 # If scaling by a time point in this experiment for this observable, exclude it from the
                 # log-likelihood calculation
                 if (obs, n) in self.likelihood_exclude.keys():
-                    # logps = np.delete(logps, self.likelihood_exclude[(obs, n)])
                     sum_logps -= logps[self.likelihood_exclude[(obs, n)]]
                 self.logp_data[n] += sum_logps
             if np.isnan(self.logp_data[n]):  # return -inf if logp is NaN
