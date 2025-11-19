@@ -95,10 +95,24 @@ class ParameterCalibration(object):
             # if scaling by values at certain time points, exclude them from the likelihood calculation
             if 'scale_by_eidx_time' in vars(protocol):
                 for scale_obs in protocol.scale_by_eidx_time.keys():
-                    e_idx = protocol.scale_by_eidx_time[scale_obs]['eidx']  # expt index
-                    t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs]['time'])  # time pt index
-                    # self.tspan_masks[-1][scale_obs][e_idx][t_idx] = False
-                    self.likelihood_exclude[(scale_obs, e_idx)] = t_idx
+                    # index of this experiment for 'likelihood' function
+                    expt_idx = self.experiments.index(expt)
+                    # tspan masks for this observable in this experiment
+                    masks = self.tspan_masks[expt_idx][scale_obs]
+                    # expt index internal to protocol object
+                    e_idx = protocol.scale_by_eidx_time[scale_obs]['eidx']
+                    # time pt index internal to protocol object
+                    t_idx = find_closest_index(tspan, protocol.scale_by_eidx_time[scale_obs]['time'])
+                    # index to scale by (which we are excluding)
+                    scale_by_idx = sum([m for mask in masks[:e_idx] for m in mask]) + t_idx
+                    self.likelihood_exclude[(scale_obs, expt_idx)] = scale_by_idx
+                    # ### Example ###
+                    # masks = [[False, True], [True, True], [True, True], [False, True]]
+                    # e_idx = 2
+                    # t_idx = 1
+                    # masks[:2] = [[False, True], [True, True]]
+                    # sum(masks[:2]) = 3
+                    # scale_by_idx = sum(masks[:2]) + t_idx = 4
 
         # create the list of parameters to be sampled and save their indices
         priors = {} if priors is None else priors
@@ -170,11 +184,13 @@ class ParameterCalibration(object):
                 if np.any(np.isnan(output[obs])):  # return -inf if simulation returns NaNs
                     return -np.inf
                 logps = self.like_data[n][obs].logpdf(output[obs][self.tspan_masks[n][obs]])
-                # If scaling by a time point in this experiment for this observable, remove it so it doesn't get used in
-                # the log-likelihood calculation
+                sum_logps = logps.sum()
+                # If scaling by a time point in this experiment for this observable, exclude it from the
+                # log-likelihood calculation
                 if (obs, n) in self.likelihood_exclude.keys():
-                    logps = np.delete(logps, self.likelihood_exclude[(obs, n)])
-                self.logp_data[n] += np.sum(logps)
+                    # logps = np.delete(logps, self.likelihood_exclude[(obs, n)])
+                    sum_logps -= logps[self.likelihood_exclude[(obs, n)]]
+                self.logp_data[n] += sum_logps
             if np.isnan(self.logp_data[n]):  # return -inf if logp is NaN
                 return -np.inf
         return sum(self.logp_data)
