@@ -82,7 +82,7 @@ def find_closest_index(tspan, target):
     return best_idx
 
 
-def plot_exp_data(filepath, separate_plots=True, show_plots=True, save_plots=False, **kwargs):
+def plot_expt_data(filepath, separate_plots=True, show_plots=True, save_plots=False, **kwargs):
 
     # check if an array has a single value, return that value if so, throw an Exception if not
     def check_unique(arr):
@@ -199,57 +199,87 @@ def get_sim_and_expt_data(path, run_pydream_filename):
     return sim_data, expt_data
 
 
-def add_plot_to_fig(sim_data, expt_data, expt_id, xvals=None, label_dict=None, **kwargs):
+def add_plot_to_fig(sim_data, expt_data, expt_id, type='fill_between', xvals=None, label_dict=None, **kwargs):
+    """
+    This function currently supports 'fill_between' and 'bar' plot types
+    """
+    _supported = ['fill_between', 'bar']
+
+    if type not in _supported:
+        raise ValueError('plot type must be one of', _supported)
+
+    # process kwargs
+    fontsizes = kwargs.get('fontsizes', {})
+    title_fs = fontsizes.get('title', 14)
+    labels_fs = fontsizes.get('labels', 12)
+    ticks_fs = fontsizes.get('ticks', 12)
+    leg_kwargs = kwargs.get('leg_kwargs', {})
+    leg_kwargs['fontsize'] = fontsizes.get('legend', 10)
 
     if xvals is None:
         xvals_sim = sim_data.loc[sim_data['sim_id'] == expt_id, 'time'].to_numpy()
         xvals_expt = expt_data.loc[expt_data['expt_id'] == expt_id, 'time'].to_numpy()
     else:
-        xvals_sim = xvals_expt = xvals
+        xvals_sim = xvals_expt = np.array(xvals)
 
     # simulation data
     legend_label = '%s (sim)' % label_dict.get(expt_id, expt_id)
     yval_min = sim_data.loc[sim_data['sim_id'] == expt_id, 'yval_min'].to_numpy()
     yval_max = sim_data.loc[sim_data['sim_id'] == expt_id, 'yval_max'].to_numpy()
-    p = plt.plot(xvals_sim, (yval_min + yval_max) / 2, ls='--', label=legend_label)
-    plt.fill_between(xvals_sim, yval_min, yval_max, alpha=0.25, color=p[0].get_color(), label='x')
+    if type == 'fill_between':
+        p = plt.plot(xvals_sim, (yval_min + yval_max) / 2, ls='--', label=legend_label)
+        plt.fill_between(xvals_sim, yval_min, yval_max, alpha=0.25, color=p[0].get_color(), label='x')
+    elif type == 'bar':
+        p = plt.bar(xvals_sim - 0.2, (yval_min + yval_max) / 2, yerr=(yval_max - yval_min) / 2, width=0.4, capsize=8,
+                    alpha=0.25, label=legend_label)
 
     # experimental data
     legend_label = '%s (expt)' % label_dict.get(expt_id, expt_id)
     avg = expt_data.loc[expt_data['expt_id'] == expt_id, 'average'].to_numpy()
     stderr = expt_data.loc[expt_data['expt_id'] == expt_id, 'stderr'].to_numpy()
-    plt.errorbar(xvals_expt, avg, yerr=stderr, fmt='o', ms=8, capsize=6, color=p[0].get_color(),
-                 label=legend_label)
+    if type == 'fill_between':
+        plt.errorbar(xvals_expt, avg, yerr=stderr, fmt='o', ms=8, capsize=6, color=p[0].get_color(), label=legend_label)
+    elif type == 'bar':
+        plt.bar(xvals_expt + 0.2, avg, yerr=stderr, width=0.4, capsize=8, color=p[0].get_facecolor(), alpha=1,
+                label=legend_label)
 
-    plt.title(kwargs.get('title', None), fontsize=16, fontweight='bold')
-    plt.xlabel(kwargs.get('xlabel'), fontsize=16)
-    plt.ylabel(kwargs.get('ylabel'), fontsize=16)
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.legend(loc='best')
+    plt.title(kwargs.get('title', None), fontsize=title_fs, fontweight='bold')
+    plt.xlabel(kwargs.get('xlabel'), fontsize=labels_fs)
+    plt.ylabel(kwargs.get('ylabel'), fontsize=labels_fs)
+    plt.xticks(fontsize=ticks_fs)
+    plt.yticks(fontsize=ticks_fs)
+    plt.legend(loc='best', **leg_kwargs)
 
 
-def merge_legend():
+def merge_legend(**leg_kwargs):
     # merge line and fill_between legend handles
     handles, labels = plt.gca().get_legend_handles_labels()
     n_sims = len([label for label in labels if 'sim' in label])
-    handles = ([(handles[n], handles[n + 1]) for n in range(0, n_sims * 2 - 1, 2)] +
-               list(handles[n_sims * 2:]))
-    labels = [labels[n] for n in range(0, n_sims * 2 - 1, 2)] + list(labels[n_sims * 2:])
+    n_expt = len([label for label in labels if 'expt' in label])
+    n_merge = int((len(labels) - n_expt) / n_sims)
+
+    handles = [tuple([handles[n + m] for m in range(n_merge)]) for n in range(0, n_sims * n_merge, n_merge)] + \
+              list(handles[n_sims * n_merge:])
+    labels = [labels[n] for n in range(0, n_sims * n_merge, n_merge)] + list(labels[n_sims * n_merge:])
+
     # reorder handles and labels
     new_handles = []
     new_labels = []
     for n in range(n_sims):
         new_handles += [handles[:n_sims][n], handles[n_sims:][n]]
         new_labels += [labels[:n_sims][n], labels[n_sims:][n]]
-    plt.legend(new_handles, new_labels, loc='best', fontsize=12)
+    plt.legend(new_handles, new_labels, loc='best', **leg_kwargs)
 
 
-def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict=None, show_plot=True,
-                          **kwargs):
+def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, plot_type='fill_between',
+                          label_dict=None, show_plot=True, **kwargs):
 
     # process kwargs
     figsize = kwargs.get('figsize', (6.4 * 0.7, 4.8 * 0.9))
+    xlim = kwargs.get('xlim', None)
+    ylim = kwargs.get('ylim', None)
+    xticks = kwargs.get('xticks', None)
+    yticks = kwargs.get('yticks', None)
 
     if label_dict is None:
         label_dict = {}
@@ -297,27 +327,40 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
                         raise Exception("Multiple units for observable '%s' in experiment '%s'" % (obs, expt))
                     y_label = '%s (%s)' % (label_dict.get(obs, obs), label_dict.get(y_units[0], y_units[0]))
                     # plot simulation and experimental data
-                    add_plot_to_fig(sim_data, expt_data, expt, xvals=conc, label_dict=label_dict,
+                    add_plot_to_fig(sim_data, expt_data, expt, type=plot_type, xvals=conc, label_dict=label_dict,
                                     title=expt_doses_dict.get('title', None), xlabel=expt_doses_dict.get('xlabel'),
-                                    ylabel=y_label)
+                                    ylabel=y_label, **kwargs)
                     suffix[obs].append(expt.split('_'))  # for the filename
-                    # plt.xticks(conc, conc)  # set the x-ticks to the experimental values TODO
 
             # complete and save the figures for each observable
             for obs in all_observables:
                 plt.figure('%d_%d_%s' % (i, j, obs))
 
-                # adjust y-limits
-                plt.ylim(bottom=0)
-
                 # adjust x-limits
-                xmin = round_down_nice(min_conc)
-                xmax = round_up_nice(max_conc)
-                buffer = 0.05 * (xmax - xmin)  # 5% buffer
-                plt.xlim(left=xmin - buffer, right=xmax + buffer)
+                if xlim is None:
+                    xmin = round_down_nice(min_conc)
+                    xmax = round_up_nice(max_conc)
+                    buffer = 0.05 * (xmax - xmin)  # 5% buffer
+                    xlim = (xmin - buffer, xmax + buffer)
+                plt.xlim(xlim)
+
+                # adjust y-limits
+                if ylim is None:
+                    ylocs = plt.yticks()[0]
+                    delta_y = ylocs[-1] - ylocs[-2]
+                    ymax = plt.ylim()[1]
+                    top = ylocs[-1] + delta_y if ymax > ylocs[-1] else ylocs[-1]
+                    ylim = (0, 1.05 * top)  # 5% buffer
+                plt.ylim(ylim)
+
+                # set x- and y-ticks
+                if xticks is not None:
+                    plt.xticks(**xticks)
+                if yticks is not None:
+                    plt.yticks(**yticks)
 
                 # merge line and fill_between legend handles
-                merge_legend()
+                merge_legend(**kwargs.get('leg_kwargs', {}))
 
                 # save figure to file
                 filename = 'fig_PyDREAM_DRC'
@@ -381,10 +424,11 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
                 y_label = '%s (%s)' % (label_dict.get(obs, obs), label_dict.get(y_units, y_units))
 
                 # plot simulation and experimental data
-                add_plot_to_fig(sim_data, expt_data, tc_id, label_dict=label_dict, xlabel=x_label, ylabel=y_label)
+                add_plot_to_fig(sim_data, expt_data, tc_id, label_dict=label_dict, xlabel=x_label, ylabel=y_label,
+                                **kwargs)
 
             # merge line and fill_between legend handles
-            merge_legend()
+            merge_legend(**kwargs.get('leg_kwargs', {}))
 
             # save figure to file
             filename = 'fig_PyDREAM_tc_%s' % obs
@@ -483,3 +527,57 @@ def remove_unneeded_observables(model, obs_to_keep=None):
     # create the new set of observables
     new_observables = pysb.core.ComponentSet([model.observables[obs_name] for obs_name in obs_names])
     model.observables = new_observables
+
+
+def plot_GR_metrics(directory, threshold=1.2, par_names=None, only_unconverged=False, **kwargs):
+    # process kwargs
+    cmap = kwargs.pop('cmap', 'turbo')  # or 'hsv', 'viridis', etc.
+
+    files = glob.glob(os.path.join(directory, '*Gelman*'))
+    iterations = sorted([int(re.search("\d\d+", os.path.split(file)[1]).group()) for file in files])
+    print('iterations:', iterations)
+
+    GR = []
+    for i in iterations:
+        file = os.path.join(directory, 'dreamzs_5chain_GelmanRubin_iteration_%d.txt' % i)
+        GR.append(np.genfromtxt(file, dtype=None, encoding="utf_8_sig"))
+    GR = np.array(GR).T
+
+    # gather GR values and parameter labels (check if 'only_converged'=True)
+    GR_and_label = [(GR_array, 'par%d' % i if par_names is None else par_names[i])
+                    for i, GR_array in enumerate(GR) if not only_unconverged or GR_array[-1] >= threshold]
+
+    # only proceed if len(GR_and_label) > 0 (won't be true if run is converged and 'only_unconverged'=True)
+    if len(GR_and_label) == 0:
+        print("All parameters are converged and 'only_unconverged' is True. If want to plot GR metrics for all "
+              "parameters for all iterations, set 'only_unconverged' to False.")
+        return True
+    else:
+        max_GR = max([GR[-1] for GR, i in GR_and_label])
+        ymax = math.ceil(max_GR * 10) / 10 + 0.1
+
+        # get number of columns and rows for the multi-plot figure
+        ncols = get_fig_ncols(len(GR_and_label))
+        nrows = math.ceil(len(GR_and_label) / ncols)
+
+        colormap = plt.get_cmap(cmap)
+        colors = [colormap(i / (len(GR_and_label) - 1)) for i in range(len(GR_and_label))]
+
+        fig = plt.figure(constrained_layout=True, figsize=(6.4 / 3 * ncols, 4.8 / 3.5 * nrows))
+        ax_ref = None
+        for i, ((GR_array, label), color) in enumerate(zip(GR_and_label, colors)):
+            ax = fig.add_subplot(nrows, ncols, i + 1, sharex=ax_ref, sharey=ax_ref)
+            if i == 0:
+                ax_ref = ax
+            ax.plot(iterations, GR_array, '-', color=color)
+            ax.set_title(label, color=color, fontweight='bold')
+            ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+            ax.label_outer()
+            ax.axhline(threshold, ls='--', color='black', lw=1.5)
+            ax.set_ylim(top=ymax)
+        fig.supxlabel('Iteration')
+        fig.supylabel('Gelman-Rubin metric')
+
+        plt.show()
+
+        return True if max_GR <= threshold else False
