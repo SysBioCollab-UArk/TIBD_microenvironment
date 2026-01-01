@@ -82,7 +82,9 @@ def find_closest_index(tspan, target):
     return best_idx
 
 
-def plot_expt_data(filepath, separate_plots=True, show_plots=True, save_plots=False, **kwargs):
+def plot_expt_data(filepath, figures=None, label_dict=None, add_titles=False, separate_plots=True, show_plots=True,
+                   save_plots=False, **kwargs):
+
 
     # check if an array has a single value, return that value if so, throw an Exception if not
     def check_unique(arr):
@@ -91,25 +93,47 @@ def plot_expt_data(filepath, separate_plots=True, show_plots=True, save_plots=Fa
         else:
             raise Exception('More than one value detected for quantity that should be unique:', arr)
 
+
+    if label_dict is None:
+        label_dict = {}
+
     # process kwargs
     fontsizes = kwargs.get('fontsizes', {})
     labels_fs = fontsizes.get('labels', 12)
     ticks_fs = fontsizes.get('ticks', 12)
     legend_fs = fontsizes.get('legend', 10)
-    legend_loc = kwargs.get('legend_loc', 'best')
+    title_fs = fontsizes.get('title', 12)
     use_alt_expt_ids = kwargs.get('use_alt_expt_ids', False)
+
+    legend_loc = kwargs.get('legend_loc', 'best')
+    ms = kwargs.get('ms', 10)
+    mec = kwargs.get('mec', None)
+    mfc = kwargs.get('mfc', None)
+    capsize = kwargs.get('capsize', 6)
+    ecolor = kwargs.get('ecolor', None)
+    # make these variables list-like
+    legend_loc, ms, mec, mfc, capsize, ecolor = \
+        [(v if np.ndim(v) != 0 else [v]) for v in (legend_loc, ms, mec, mfc, capsize, ecolor)]
+
+    colors = kwargs.get('colors', None)
+    markers = kwargs.get('markers', None)
 
     # read in data
     data = pd.read_csv(filepath)
     observables = data['observable'].unique()
     expt_ids = data['expt_id'].unique()
-    '''print(data.columns)
+    '''
+    print(data.columns)
     print(observables)
-    print(expt_ids)'''
+    print(expt_ids)
+    '''
 
-    figures = []
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']  # standard colors
-    markers = ['o', '^', 's', 'v', '<', '>', 'D', 'p', 'H', '*']
+    if figures is None:
+        figures = []
+    if colors is None:
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']  # standard colors
+    if markers is None:
+        markers = ['o', '^', 's', 'v', '<', '>', 'D', 'p', 'H', '*']
     # loop over observables and experiments and plot data
     for obs in observables:
         data_obs = data[data['observable'] == obs]
@@ -119,22 +143,31 @@ def plot_expt_data(filepath, separate_plots=True, show_plots=True, save_plots=Fa
                 figures.append(fig)
         for i, expt_id in enumerate(expt_ids):
             data_obs_expt = data_obs[data_obs['expt_id'] == expt_id]
-            if separate_plots:
-                fig = plt.figure('%s_%s' % (obs, expt_id), constrained_layout=True)
-                if save_plots is not False and fig not in figures:
-                    figures.append(fig)
-            time = data_obs_expt['time']
-            average = data_obs_expt['average']
-            stderr = data_obs_expt['stderr']
-            label = 'expt %s' % expt_id if not use_alt_expt_ids else check_unique(data_obs_expt['alt_expt_id'].unique())
-            plt.errorbar(time, average, yerr=stderr, ls='', marker=markers[i % len(markers)],
-                         color=colors[i % len(colors)], ms=10, capsize=6, label=label)
-            time_units = check_unique(data_obs_expt['time_units'].unique())
-            amount_units = check_unique(data_obs_expt['amount_units'].unique())
-            plt.xlabel('Time (%s)' % time_units, fontsize=labels_fs)
-            plt.ylabel('%s (%s)' % (obs, amount_units), fontsize=labels_fs)
-            plt.tick_params(axis='both', which='major', labelsize=ticks_fs)
-            plt.legend(loc=legend_loc, fontsize=legend_fs)
+            if len(data_obs_expt) > 0:
+                if separate_plots:
+                    fig = plt.figure('%s_%s' % (obs, expt_id), constrained_layout=True)
+                    if save_plots is not False and fig not in figures:
+                        figures.append(fig)
+                time = data_obs_expt['time']
+                average = data_obs_expt['average']
+                stderr = data_obs_expt['stderr']
+                label = 'expt %s' % expt_id if not use_alt_expt_ids else \
+                    check_unique(data_obs_expt['alt_expt_id'].unique())
+                plt.errorbar(time, average, yerr=stderr, ls='', marker=markers[i % len(markers)],
+                             color=colors[i % len(colors)], ms=ms[i % len(ms)], mec=mec[i % len(mec)],
+                             mfc=mfc[i % len(mfc)], capsize=capsize[i % len(capsize)], ecolor=ecolor[i % len(ecolor)],
+                             label=label_dict.get(label, label))
+                time_units = check_unique(data_obs_expt['time_units'].unique())
+                amount_units = check_unique(data_obs_expt['amount_units'].unique())
+                plt.xlabel('Time (%s)' % label_dict.get(time_units, time_units), fontsize=labels_fs)
+                plt.ylabel('%s (%s)' % (label_dict.get(obs, obs), label_dict.get(amount_units, amount_units)),
+                           fontsize=labels_fs)
+                plt.tick_params(axis='both', which='major', labelsize=ticks_fs)
+                plt.legend(loc=legend_loc[i % len(legend_loc)], fontsize=legend_fs)
+                if add_titles:
+                    title = '%s' % fig.get_label()
+                    title = label_dict.get(title, title)
+                    plt.title(title, fontsize=title_fs, fontweight='bold')
 
     if save_plots is not False:
         outpath = '.' if save_plots is True else save_plots
@@ -145,6 +178,8 @@ def plot_expt_data(filepath, separate_plots=True, show_plots=True, save_plots=Fa
 
     if show_plots:
         plt.show()
+
+    return figures
 
 
 # Helper function for getting a good x-axis upper limit for dose-response plots
@@ -397,12 +432,18 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
         # get simulation and experimental data
         sim_data, expt_data = get_sim_and_expt_data(path, run_pydream_filename)
 
+        # check for the 'alt_expt_id' column in 'expt_data'. if it doesn't exist, copy the 'expt_id' column.
+        if 'alt_expt_id' not in expt_data.columns:
+            expt_data['alt_expt_id'] = expt_data['expt_id']
+
         # loop over observables
         for obs in sim_data['observable'].unique():
             plt.figure(constrained_layout=True, figsize=figsize)
             x_units = None
             y_units = None
+            # loop over timecourse IDs
             for tc_id in tc_ids:
+
                 # get time units for the x-axis
                 time_units = expt_data.loc[
                     (expt_data['expt_id'] == tc_id) & (expt_data['observable'] == obs), 'time_units'].unique()
@@ -423,9 +464,40 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
                 y_units = amount_units[0]
                 y_label = '%s (%s)' % (label_dict.get(obs, obs), label_dict.get(y_units, y_units))
 
+                # get the alt expt IDs for this expt ID and observable pair
+                alt_expt_ids = expt_data.loc[
+                    (expt_data['expt_id'] == tc_id) & (expt_data['observable'] == obs), 'alt_expt_id'].unique()
+
+                # get the expt data "chunks" for each alt expt ID
+                expt_data_chunks = [
+                    expt_data[
+                        (expt_data['expt_id'] == tc_id) &
+                        (expt_data['observable'] == obs) &
+                        (expt_data['alt_expt_id'] == alt_expt_id)
+                    ].copy() for alt_expt_id in alt_expt_ids]
+
+                # compute how many rows each chunk has
+                chunk_sizes = np.array([len(chunk) for chunk in expt_data_chunks], dtype=int)
+                if chunk_sizes.sum() == 0:
+                    raise ValueError("All expt_data chunks are empty; cannot infer how to split \'sim_data\'.")
+
+                # split sim_data into matching chunks
+                n_sim = len(sim_data)
+                chunk_fracs = chunk_sizes / chunk_sizes.sum()
+                sim_chunk_sizes = [int(n_sim * f) for f in chunk_fracs]
+                start = 0
+                sim_data_chunks = []
+                for size in sim_chunk_sizes:
+                    # use iloc to preserve original row order
+                    sim_data_chunks.append(sim_data.iloc[start:start + size].copy())
+                    start += size
+
                 # plot simulation and experimental data
-                add_plot_to_fig(sim_data, expt_data, tc_id, label_dict=label_dict, xlabel=x_label, ylabel=y_label,
-                                **kwargs)
+                for alt_expt_id, sim_data_chunk, expt_data_chunk in \
+                        zip(alt_expt_ids, sim_data_chunks, expt_data_chunks):
+                    label_dict[tc_id] = label_dict.get(alt_expt_id, alt_expt_id)  # map alt_expt_id to expt_id
+                    add_plot_to_fig(sim_data_chunk, expt_data_chunk, tc_id, label_dict=label_dict, xlabel=x_label,
+                                    ylabel=y_label, **kwargs)
 
             # merge line and fill_between legend handles
             merge_legend(**kwargs.get('leg_kwargs', {}))
@@ -561,7 +633,8 @@ def plot_GR_metrics(directory, threshold=1.2, par_names=None, only_unconverged=F
         nrows = math.ceil(len(GR_and_label) / ncols)
 
         colormap = plt.get_cmap(cmap)
-        colors = [colormap(i / (len(GR_and_label) - 1)) for i in range(len(GR_and_label))]
+        colors = [colormap(0)] if len(GR_and_label) == 1 else \
+            [colormap(i / (len(GR_and_label) - 1)) for i in range(len(GR_and_label))]
 
         fig = plt.figure(constrained_layout=True, figsize=(6.4 / 3 * ncols, 4.8 / 3.5 * nrows))
         ax_ref = None
