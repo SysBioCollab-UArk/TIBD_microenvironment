@@ -1,0 +1,7 @@
+observable,time,time_units,average,stderr,amount_units,expt_id,alt_expt_id
+Tumor_tot,14,day,1256.89,413.93,RFU,B,Johnson2011 (PBS-Tumor)
+Tumor_tot,21,day,1618.00,334.00,RFU,B,Johnson2011 (PBS-Tumor)
+Tumor_tot,28,day,4984.01,950.10,RFU,B,Johnson2011 (PBS-Tumor)
+Tumor_tot,14,day,678.69,272.64,RFU,C,Johnson2011 (ZA-Tumor)
+Tumor_tot,21,day,748.47,146.74,RFU,C,Johnson2011 (ZA-Tumor)
+Tumor_tot,28,day,2104.70,678.04,RFU,D,Johnson2011 (ZA-Tumor)
