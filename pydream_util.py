@@ -606,7 +606,7 @@ def plot_GR_metrics(directory, threshold=1.2, par_names=None, only_unconverged=F
     cmap = kwargs.pop('cmap', 'turbo')  # or 'hsv', 'viridis', etc.
 
     files = glob.glob(os.path.join(directory, '*Gelman*'))
-    iterations = sorted([int(re.search("\d\d+", os.path.split(file)[1]).group()) for file in files])
+    iterations = sorted([int(re.search(r"\d\d+", os.path.split(file)[1]).group()) for file in files])
     print('iterations:', iterations)
 
     GR = []
