@@ -245,7 +245,7 @@ class ParameterCalibration(object):
 
     def create_figures(self, logps_files, samples_files, obs_labels=None, show_plots=False, save_plots=True,
                        plot_ll_args=None, plot_pd_args=None, plot_tc_args=None, which_plots='all',
-                       max_time_points=1000):
+                       max_time_points=1000, labels_dict=None):
 
         # which plots should we create? (NOTE: user can pass an integer too)
         which_plots = \
@@ -316,6 +316,7 @@ class ParameterCalibration(object):
             if _plot_pd_args['groups'] is None:
                 _plot_pd_args['groups'] = param_groups
             _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
+            _plot_pd_args['labels_dict'] = labels_dict
 
             param_samples, log_ps = \
                 self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
@@ -418,7 +419,7 @@ class ParameterCalibration(object):
         log_ps_var = 0
         for i, chain in enumerate(chains):
             plt.plot(range(len(log_ps[i])), log_ps[i], label='chain %d' % chain)
-            log_ps_max = np.max(log_ps[i]) if log_ps_max < np.max(log_ps[i]) else log_ps_max
+            log_ps_max = np.nanmax(log_ps[i]) if log_ps_max < np.nanmax(log_ps[i]) else log_ps_max
             log_ps_mean += np.nanmean(log_ps[i][burnin:]) / len(chains)
             log_ps_var += np.nanvar(log_ps[i][burnin:]) / len(chains)  # mean of the variances, but that's fine
         # plot the mean over all chains
@@ -457,6 +458,9 @@ class ParameterCalibration(object):
     def plot_param_dist(sample_files, show_plot=False, save_plot=True, labels=None, groups=None, cutoff=None, **kwargs):
 
         # process kwargs
+        labels_dict = kwargs.get('labels_dict', {})
+        if labels_dict is None:
+            labels_dict = {}
         sharex = kwargs.get('sharex', 'all')
         sharey = kwargs.get('sharey', 'none')
         bw_adjust = kwargs.get('bw_adjust', 1)
@@ -553,7 +557,7 @@ class ParameterCalibration(object):
                 for ax in (axs[row][col], axs2[row][col]):
                     ax.set_yticklabels([])
                     ax.set_ylabel(None)
-                    ax.set_title(label[dim], fontsize=labelsize)
+                    ax.set_title(labels_dict.get(label[dim], label[dim]), fontsize=labelsize)
                     ax.tick_params(axis='x', labelsize=labelsize)
                 # update column and row
                 col += 1
