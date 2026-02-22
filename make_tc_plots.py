@@ -235,10 +235,26 @@ if __name__ == '__main__':
         # {'sim_expt_ids': [B], 'fig_name': 'Fig_par_wo_ZA', 'expt_data_only': False}
     ]
 
+    from matplotlib.collections import PolyCollection
     for d in directories:
         path = os.path.join(base_path, d)
         for opts in plot_opts:
             make_fig(path, **opts, **common_opts)
+            #####
+            # Add a horizontal line to the osteoblasts plot in the untreated tumor figure
+            if opts['sim_expt_ids'] == [A, B]:
+                fig = plt.gcf()
+                ax = fig.get_axes()[2]
+                for c in ax.collections:
+                    if isinstance(c, PolyCollection):
+                        if 'Johnson' in c.get_label():
+                            fill_path = c.get_paths()[0]  # first contiguous region
+                            verts = fill_path.vertices  # shape (2*n+1, 2)
+                            n = (len(verts) - 1) // 2  # number of x points
+                            x0, y_upper0 = fill_path.vertices[0]  # upper at first x
+                            xf = verts[n-1, 0]
+                            ax.plot([x0, xf], [y_upper0, y_upper0], color='k', linestyle='--', lw=1)
+                fig.savefig(opts['fig_name'])
 
         # ax = plt.gca()
         # ax.set_ylim(top=5)
