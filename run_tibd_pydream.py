@@ -1,5 +1,5 @@
 from MODELS.TIBD_PopD_v1 import model
-from MODULES.perturbations import add_bisphosphonate_components
+from MODULES.perturbations import add_bisphosphonate_components, add_denosumab_components
 from param_calibration import *
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import *
@@ -9,8 +9,9 @@ this_dir = os.path.dirname(__file__)
 expt_data_file = os.path.join(this_dir, 'DATA', 'TIBD_PopD_Data.csv')
 
 add_bisphosphonate_components()
+# add_denosumab_components()
 
-solver = ScipyOdeSimulator(model)
+solver = ScipyOdeSimulator(model, compiler='cython')
 
 # Experiments A & B
 tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor()', 1)})
@@ -23,10 +24,10 @@ tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
 bisphos_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
 
 # Additional parameters
-custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
+custom_priors = {'N': ('uniform', 0.3)}  #, 'nB': ('norm', 1), 'nC': ('norm', 1)}
 
 no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC', 'ALLEE_ON',
-             'A', 'Bisphos_0']
+             'A', 'Bisphos_0']  #, 'Denosumab_0']
 
 obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts', 'Tumor_tot': 'tumor cells'}
 
