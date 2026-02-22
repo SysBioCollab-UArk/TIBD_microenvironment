@@ -8,7 +8,7 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
     # ########## BONE ##########
 
     Monomer('Bone')
-    Parameter('Bone_0', 100)  # percentage
+    Parameter('Bone_0', 100)  # "bone units"
 
     # Make OB bone production and OC bone consumption rates increase with decreasing cell concentrations
     # B >> B + Bone, rate_B
@@ -70,6 +70,8 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
 
     Initial(Bone(), Bone_0)
     Observable('Bone_tot', Bone())
+    # Observable('Bone_units', Bone())
+    # Expression('Bone_tot', Bone_units / Bone_0 * 100)
 
     Rule('B_builds_bone', B() >> B() + Bone(), k_B_builds_bone)
     Rule('C_consumes_bone', C() + Bone() >> C(), k_C_consumes_bone)
@@ -127,6 +129,7 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
     Rule('AOB_death_tumor', Tumor() + B() >> Tumor(), k_tumor_OB)
 
     # Hypothesize that tumor cells secrete a factor that promotes OC production
-    Parameter('k_tumor_OC', 0.004)  # 1/fM-day  # 0.01
-    alias_model_components()
-    Rule('AOC_creation_tumor', Tumor() >> Tumor() + C(), k_tumor_OC)
+    # NOTE: this reaction is no longer considered part of the model
+    # Parameter('k_tumor_OC', 0)  # 1/fM-day  # 0.01
+    # alias_model_components()
+    # Rule('AOC_creation_tumor', Tumor() >> Tumor() + C(), k_tumor_OC)
