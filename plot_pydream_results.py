@@ -23,12 +23,25 @@ kwargs = {'obs_labels': obs_labels, 'show_plots': True,
           'plot_ll_args': {'cutoff': 2, 'fontsizes': {'labels': 14, 'ticks': 14, 'legend': 14}, 'leg_ncols': 2},
           'plot_pd_args': {'sharex': 'all', 'fontsize': 28, 'labelsize': 24, 'bw_adjust': 3},
           'plot_tc_args': {'separate_plots': False, 'save_sim_data': True},
-          'which_plots': 2}  # 1: only log-likelihoods, 2: log-likelihoods & param histograms, 3 or 'all': all plots
+          'which_plots': 2,  # 1: only log-likelihoods, 2: log-likelihoods & param histograms, 3 or 'all': all plots
+          'labels_dict': {
+              'k1_B_builds_bone': 'k_1B',
+              'k2_B_builds_bone': 'k_2B',
+              'k1_C_consumes_bone': 'k_1C',
+              'k2_C_consumes_bone': 'k_2C',
+              'k_tumor_div_basal': 'k_Tdiv',
+              'k_tumor_dth': 'k_Tdth',
+              'N': 'M',
+              'k_tumor_div_TGFb': 'k_Ttgfb',
+              'k_tumor_PTHrP': 'k_Tpthrp',
+              'k_tumor_OB': 'k_T-B',
+              'k_bisphos_AOC': 'k_Z-C'
+          }}
 
-return_objs = plot_pydream_output(dirpath, calibrator, max_iter=500000, **kwargs)
+return_objs = plot_pydream_output(dirpath, calibrator, max_iter=None, **kwargs)  # max_iter=500000
 
 # if parameter distributions were generated, check if there are multiple groups to overlap and compare
-group_labels = ('Bone-Metastatic', 'Parental', 'ALL')  # the last label should be 'ALL'
+group_labels = ('Bone-Adapted', 'Parental', 'ALL')  # the last label should be 'ALL'
 if return_objs[1] is not None:
     samples, _, groups, param_labels = return_objs[1]
     groups_idxs = np.arange(len(groups))
@@ -39,7 +52,8 @@ if return_objs[1] is not None:
         # if the two lists of labels are identical, plot the histogram overlays
         if len(x) == len(y) and all(x[i] == y[i] for i in range(len(x))):
             kwargs = {
-                'fontsizes': {'labels': 20, 'ticks': 18, 'title': 18, 'legend': 14},
+                'labels_dict': kwargs['labels_dict'],
+                'fontsizes': {'labels': 20, 'ticks': 18, 'title': 18, 'legend': 12},
                 'bw_adjust': (3.0, 3.0),  # histogram smoothing parameters (default = 1, > 1 = smoother)
                 'sharex': False,
                 'table_props': {'fontsize': 20, 'ncols': 2, 'scale': (0.8, 2), 'nudge': (0.01, 0)},
