@@ -77,11 +77,13 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         raise Exception("The number of parameter labels must equal the number of columns in 'two_samples'")
 
     # process kwargs
+    labels_dict = kwargs.get('labels_dict', {})
     fontsizes = kwargs.get('fontsizes', {})
     labels_fs = fontsizes.get('labels', None)
     ticks_fs = fontsizes.get('ticks', None)
     title_fs = fontsizes.get('title', None)
     legend_fs = fontsizes.get('legend', None)
+    legend_loc = kwargs.get('legend_loc', 'best')
     bw_adjust = kwargs.get('bw_adjust', (1, 1))  # histogram smoothing parameter
     sharex = kwargs.get('sharex', False)
     table_props = kwargs.get('table_props', {})
@@ -134,15 +136,17 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         empty_handle = Line2D([], [], linestyle="none")
         legend = ax.legend([empty_handle, empty_handle],
                            [r'$D$: %.3f' % D[-1],
-                            r'$\left\langle D^\mathrm{self} \right\rangle$: %.3f' % E_Dself[0][n]],
+                            r'$\mathrm{E}\left[D^\mathrm{self}\right]$: %.3f' % E_Dself[0][n]],
+                            # r'$\left\langle D^\mathrm{self} \right\rangle$: %.3f' % E_Dself[0][n]],
                            fontsize=0.9 * labelsize if legend_fs is None else legend_fs,
-                           loc='best', handlelength=0, handletextpad=0, labelspacing=0.3, borderpad=0)
+                           loc=legend_loc, handlelength=0, handletextpad=0, labelspacing=0.3, borderpad=0)
         legend.set_frame_on(False)
         ax.set_yticklabels([])
         ax.set_ylabel(None)
         ax.tick_params(axis='x', labelsize=labelsize if ticks_fs is None else ticks_fs)
         # ax.label_outer()
-        ax.set_title(param_labels[n], fontsize=labelsize if title_fs is None else title_fs)
+        ax.set_title(labels_dict.get(param_labels[n], param_labels[n]),
+                     fontsize=labelsize if title_fs is None else title_fs)
     print()
     fig_overlay.supxlabel(r'log$_{10}$ value' + '\n\n', fontsize=fontsize if labels_fs is None else labels_fs)
     fig_overlay.supylabel('Density', fontsize=fontsize if labels_fs is None else labels_fs)
@@ -168,6 +172,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     # Make a table with parameter names rank-ordered by histogram distance
     sorted_idxs = np.argsort(D)[::-1]  # sort from largest to smallest
     sorted_labels = [param_labels[i % n_params] for i in sorted_idxs]
+    sorted_labels = [labels_dict.get(label, label) for label in sorted_labels]
     table_data = []
     for col in range(table_ncols):
         start = col * n_params // table_ncols
