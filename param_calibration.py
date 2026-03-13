@@ -12,7 +12,7 @@ import os
 import csv
 import multiprocessing
 import math
-from pydream_util import find_closest_index, get_fig_ncols, is_num_pair
+from pydream_util import *
 
 
 # Function for timeout option
@@ -176,9 +176,11 @@ class ParameterCalibration(object):
         self.logp_data = [0.] * self.n_experiments
 
     # likelihood function
-    def likelihood(self, position):
+    def likelihood(self, position, expt_idxs=None):
         y = np.copy(position)
-        for n in range(self.n_experiments):
+        if expt_idxs is None:
+            expt_idxs = np.arange(self.n_experiments)
+        for n in expt_idxs:  # range(self.n_experiments):
             self.logp_data[n] = 0.  # reinitialize this to zero
             self.param_values[self.parameter_idxs] = 10 ** y[self.samples_idxs[n]]
             # run simulation
@@ -202,8 +204,16 @@ class ParameterCalibration(object):
             history_thin=1, gamma_levels=4, multitry=False, timeout=5, obs_labels=None, plot_results=True,
             plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
 
-        total_iterations = 0
-        all_samples = None
+        if not restart:
+            total_iterations = 0
+            all_samples = None
+        else:
+            filepath = '.' if restart is True else restart
+            history_file = os.path.join(filepath, 'dreamzs_%dchain_DREAM_chain_history.npy' % nchains)
+            history_3d, total_iterations = \
+                load_pydream_history(history_file, len(self.parameter_idxs), nchains, history_thin, nseedchains=None)
+            all_samples = [history_3d[:, :, chain] for chain in range(nchains)]
+
         converged = False
         while not converged:
             sampled_params, log_ps = run_dream(parameters=self.sampled_params_list,
@@ -751,7 +761,7 @@ class ParameterCalibration(object):
             outputs = [o for i, o in enumerate(outputs) if i not in idx_remove]  # safe remove if 'outputs' is ragged
             counts_n = np.delete(counts_n, idx_remove, axis=0)
             # use 'counts' to generate full set of simulation outputs for correct weighting of plots
-            outputs = np.repeat(outputs, counts_n, axis=0)
+            # outputs = np.repeat(outputs, counts_n, axis=0)  # TODO
             # plot results
             for i, obs_name in enumerate(observables[n]):
                 print(obs_name)
@@ -764,8 +774,15 @@ class ParameterCalibration(object):
                 yvals = np.array([output[obs_name] for output in outputs])
                 # reshape yvals_min and yvals_max to handle the case where multiple experiments are merged into one
                 # using the ParallelExperiments simulation protocol class
-                yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))
-                yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))
+                #####
+                # yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))
+                # yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))
+                #####
+                qs = weighted_percentile_linear_axis0(yvals, counts_n, fill_between)
+                yvals_min = qs[0].reshape(-1, len(tspans[n]))
+                yvals_max = qs[1].reshape(-1, len(tspans[n]))
+                #####
+
                 # loop over each sub-experiment (if there's only 1 expt, will only loop once)
                 hatch_patterns = [None, '/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*']
                 for j, (ymin, ymax) in enumerate(zip(yvals_min, yvals_max)):

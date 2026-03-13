@@ -654,3 +654,181 @@ def plot_GR_metrics(directory, threshold=1.2, par_names=None, only_unconverged=F
         plt.show()
 
         return True if max_GR <= threshold else False
+
+
+def load_pydream_history(history_file, nparams, nchains, history_thin=1, nseedchains=None):
+    """
+    Load a PyDREAM history file and reshape it to (stored_iterations, parameters, chains).
+
+    Parameters
+    ----------
+    history_file : str
+        Path to the .npy history file.
+    nparams : int
+        Number of adjustable parameters.
+    nchains : int
+        Number of MCMC chains.
+    history_thin : int, optional
+        Thinning interval used when saving history. Default is 1.
+    nseedchains : int or None, optional
+        Number of seed history records. If None, assumes PyDREAM default: nseedchains = 10 * nparams.
+
+    Returns
+    -------
+    history_3d : np.ndarray
+        Array of shape (stored_iterations, nparams, nchains).
+    nstored_iterations : int
+        Number of stored iterations per chain in the history file.
+    niterations_total : int
+        Total number of MCMC iterations per chain, inferred from thinning.
+    """
+    # Load flattened history
+    history = np.load(history_file)
+
+    # Default PyDREAM seed history
+    if nseedchains is None:
+        nseedchains = 10 * nparams
+
+    # Reshape to rows of parameter vectors
+    history = history.reshape(-1, nparams)
+
+    # Remove seeded prior draws
+    history = history[nseedchains:, :]
+
+    # Number of stored rows remaining
+    nrows = history.shape[0]
+
+    if nrows % nchains != 0:
+        raise ValueError(
+            f"After removing seed history, number of rows ({nrows}) "
+            f"is not divisible by nchains ({nchains})."
+        )
+
+    # Stored iterations per chain
+    nstored_iterations = nrows // nchains
+
+    # Total iterations per chain before thinning
+    niterations_total = nstored_iterations * history_thin
+
+    # Reshape to (nstored_iterations, nparams, nchains)
+    history_3d = history.reshape(nstored_iterations, nchains, nparams).transpose(0, 2, 1)
+
+    return history_3d, niterations_total
+
+
+def weighted_percentile_linear_1d(values, weights, percentiles):
+    """
+    Mimic np.percentile(repeated_values, q, method='linear')
+    without explicitly repeating values.
+
+    Parameters
+    ----------
+    values : array-like, shape (n,)
+        Unique data values.
+    weights : array-like, shape (n,)
+        Multiplicity of each unique value (counts).
+    percentiles : scalar or array-like
+        Percentiles in [0, 100].
+
+    Returns
+    -------
+    result : ndarray
+        Weighted percentile value(s), matching linear interpolation
+        on the repeated sample.
+    """
+    values = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=np.int64)
+    percentiles = np.atleast_1d(percentiles).astype(float)
+
+    if values.ndim != 1:
+        raise ValueError("values must be 1D")
+    if weights.ndim != 1:
+        raise ValueError("weights must be 1D")
+    if len(values) != len(weights):
+        raise ValueError("values and weights must have the same length")
+    if np.any(weights < 0):
+        raise ValueError("weights must be nonnegative")
+    if np.sum(weights) == 0:
+        raise ValueError("sum of weights must be > 0")
+
+    # Sort by value
+    sorter = np.argsort(values)
+    values = values[sorter]
+    weights = weights[sorter]
+
+    # Collapse any equal values that may still remain
+    uniq_vals = []
+    uniq_wts = []
+    for v, w in zip(values, weights):
+        if uniq_vals and v == uniq_vals[-1]:
+            uniq_wts[-1] += w
+        else:
+            uniq_vals.append(v)
+            uniq_wts.append(w)
+
+    values = np.asarray(uniq_vals, dtype=float)
+    weights = np.asarray(uniq_wts, dtype=np.int64)
+
+    cum = np.cumsum(weights)
+    N = int(cum[-1])
+
+    # NumPy linear percentile uses virtual index h = (N - 1) * q / 100
+    h = (N - 1) * (percentiles / 100.0)
+    lo = np.floor(h).astype(np.int64)
+    hi = np.ceil(h).astype(np.int64)
+    frac = h - lo
+
+
+    # Map expanded-sample index -> value without constructing repeated array
+    def value_at_index(idx):
+        pos = np.searchsorted(cum, idx + 1, side='left')
+        return values[pos]
+
+
+    v_lo = np.array([value_at_index(i) for i in lo], dtype=float)
+    v_hi = np.array([value_at_index(i) for i in hi], dtype=float)
+
+    return v_lo + frac * (v_hi - v_lo)
+
+
+def weighted_percentile_linear_axis0(yvals, weights, percentiles):
+    """
+    Apply weighted_percentile_linear_1d along axis 0.
+
+    Parameters
+    ----------
+    yvals : ndarray, shape (n_samples, ...)
+        Simulation outputs for unique parameter sets.
+    weights : ndarray, shape (n_samples,)
+        Counts for each unique parameter set.
+    percentiles : scalar or array-like
+        Percentiles in [0, 100].
+
+    Returns
+    -------
+    result : ndarray
+        Shape (n_percentiles, ...) if multiple percentiles are requested,
+        else shape (...).
+    """
+    yvals = np.asarray(yvals, dtype=float)
+    weights = np.asarray(weights, dtype=np.int64)
+    percentiles = np.atleast_1d(percentiles).astype(float)
+
+    if yvals.shape[0] != len(weights):
+        raise ValueError("weights length must match yvals.shape[0]")
+
+    trailing_shape = yvals.shape[1:]
+    yvals_2d = yvals.reshape(yvals.shape[0], -1)
+
+    out = np.empty((len(percentiles), yvals_2d.shape[1]), dtype=float)
+
+    for j in range(yvals_2d.shape[1]):
+        out[:, j] = weighted_percentile_linear_1d(
+            yvals_2d[:, j], weights, percentiles
+        )
+
+    out = out.reshape((len(percentiles),) + trailing_shape)
+
+    if len(percentiles) == 1:
+        return out[0]
+    return out
