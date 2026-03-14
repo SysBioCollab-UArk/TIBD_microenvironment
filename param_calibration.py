@@ -209,10 +209,11 @@ class ParameterCalibration(object):
             all_samples = None
         else:
             filepath = '.' if restart is True else restart
-            history_file = os.path.join(filepath, 'dreamzs_%dchain_DREAM_chain_history.npy' % nchains)
-            history_3d, total_iterations = \
-                load_pydream_history(history_file, len(self.parameter_idxs), nchains, history_thin, nseedchains=None)
-            all_samples = [history_3d[:, :, chain] for chain in range(nchains)]
+            _, all_samples = load_logps_and_param_samples(filepath)
+            total_iterations = all_samples.shape[1]
+            if start is None:
+                print('Restarting from end of previous PyDREAM run')
+                start = np.array([all_samples[chain][-1, :] for chain in range(all_samples.shape[0])])
 
         converged = False
         while not converged:
@@ -494,7 +495,7 @@ class ParameterCalibration(object):
                            key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
             samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
 
-        # load the log-likelihoods
+        # read in log-likelihoods from files
         log_ps_chain = []
         for chain in chains:
             # get files and sort them numerically by number of iterations (using key=lambda function)
@@ -775,8 +776,8 @@ class ParameterCalibration(object):
                 # reshape yvals_min and yvals_max to handle the case where multiple experiments are merged into one
                 # using the ParallelExperiments simulation protocol class
                 #####
-                # yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))
-                # yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))
+                # yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))  # TODO
+                # yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))  # TODO
                 #####
                 qs = weighted_percentile_linear_axis0(yvals, counts_n, fill_between)
                 yvals_min = qs[0].reshape(-1, len(tspans[n]))

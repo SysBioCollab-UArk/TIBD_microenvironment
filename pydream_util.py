@@ -832,3 +832,50 @@ def weighted_percentile_linear_axis0(yvals, weights, percentiles):
     if len(percentiles) == 1:
         return out[0]
     return out
+
+
+def load_logps_and_param_samples(dirpath):
+    logps_files = glob.glob(os.path.join(dirpath, 'dreamzs*logps*'))
+    samples_files = glob.glob(os.path.join(dirpath, 'dreamzs*params*'))
+
+    # error check
+    if len(logps_files) != len(samples_files):
+        raise ValueError("Number of logps (%d) and params (%d) files not equal" %
+                         (len(logps_files), len(samples_files)))
+
+    # get chains and iterations from file names
+    chains = []
+    chains_temp = []
+    iterations = []
+    iterations_temp = []
+    for logps_file, samples_file in zip(logps_files, samples_files):
+        m = re.search(r'chain_(\d+)_(\d+).npy$', logps_file)
+        chains.append(int(m.group(1)))
+        iterations.append(int(m.group(2)))
+        m = re.search(r'chain_(\d+)_(\d+).npy$', samples_file)
+        chains_temp.append(int(m.group(1)))
+        iterations_temp.append(int(m.group(2)))
+    chains = np.unique(chains)
+    chains_temp = np.unique(chains_temp)
+    iterations = np.unique(iterations)
+    iterations_temp = np.unique(iterations_temp)
+
+    # error check
+    if not all(chains[i] == chains_temp[i] for i in range(len(chains))):
+        raise ValueError("chains for logps and samples files not equal")
+    if not all(iterations[i] == iterations_temp[i] for i in range(len(iterations))):
+        raise ValueError("iterations for logps and samples files not equal")
+
+    # read in logps and parameter samples from files
+    log_ps_chain = []
+    samples_chain = []
+    for chain in chains:
+        # get files and sort them numerically by number of iterations (using key=lambda function)
+        files = sorted([file for file in logps_files if re.search(r'chain_%d' % chain, file)],
+                       key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
+        log_ps_chain.append(np.concatenate(tuple(np.load(file) for file in files)).flatten())
+        files = sorted([file for file in samples_files if re.search(r'chain_%d' % chain, file)],
+                       key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
+        samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
+
+    return np.array(log_ps_chain), np.array(samples_chain)
