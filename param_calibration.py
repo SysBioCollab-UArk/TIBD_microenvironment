@@ -213,7 +213,7 @@ class ParameterCalibration(object):
             total_iterations = all_samples.shape[1]
             if start is None:
                 print('Restarting from end of previous PyDREAM run')
-                start = np.array([all_samples[chain][-1, :] for chain in range(all_samples.shape[0])])
+                start = [all_samples[chain][-1, :] for chain in range(all_samples.shape[0])]
 
         converged = False
         while not converged:
