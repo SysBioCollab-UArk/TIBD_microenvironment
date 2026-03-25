@@ -306,15 +306,10 @@ def merge_legend(**leg_kwargs):
     plt.legend(new_handles, new_labels, loc='best', **leg_kwargs)
 
 
-def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, plot_type='fill_between',
-                          label_dict=None, show_plot=True, **kwargs):
-
+def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict=None, show_plot=True,
+                          **kwargs):
     # process kwargs
     figsize = kwargs.get('figsize', (6.4 * 0.7, 4.8 * 0.9))
-    xlim = kwargs.get('xlim', None)
-    ylim = kwargs.get('ylim', None)
-    xticks = kwargs.get('xticks', None)
-    yticks = kwargs.get('yticks', None)
 
     if label_dict is None:
         label_dict = {}
@@ -338,23 +333,16 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
         sim_data, expt_data = get_sim_and_expt_data(path, run_pydream_filename)
 
         for j, expt_doses_dict in enumerate(expt_doses_list):
-            experiments = [key for key in expt_doses_dict.keys() if key not in ['xlabel', 'title']]
-            all_observables = expt_data.loc[expt_data['expt_id'].isin(experiments), 'observable'].unique()
-            suffix = {obs: [] for obs in all_observables}  # for the filename
-            min_conc = np.inf
-            max_conc = 0
-            for expt in [key for key in expt_doses_dict.keys() if key not in ['xlabel', 'title']]:
+            experiments = [key for key in expt_doses_dict.keys()]  # if key not in ['xlabel', 'title']]
+            for k, expt in enumerate(experiments):  # [key for key in expt_doses_dict.keys() if key not in ['xlabel', 'title']]:
                 # get dose-response concentrations
-                conc = expt_doses_dict[expt]
-                if min(conc) < min_conc:
-                    min_conc = min(conc)
-                if max(conc) > max_conc:
-                    max_conc = max(conc)
+                conc = expt_doses_dict[expt]['doses']
+                plot_type = expt_doses_dict[expt].get('plot_type', 'fill_between')
                 # loop over observables for this experiment (could be different observables for different experiments)
                 these_observables = expt_data.loc[expt_data['expt_id'] == expt, 'observable'].unique()
                 for obs in these_observables:
                     # for each experiment, create a figure for each observable
-                    plt.figure('%d_%d_%s' % (i, j, obs), constrained_layout=True, figsize=figsize)
+                    plt.figure('%d_%d_%s' % (i, k, obs), constrained_layout=True, figsize=figsize)
                     # get units for the observable and make the y-axis label
                     y_units = expt_data.loc[
                         (expt_data['expt_id'] == expt) & (expt_data['observable'] == obs), 'amount_units'].unique()
@@ -363,23 +351,20 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
                     y_label = '%s (%s)' % (label_dict.get(obs, obs), label_dict.get(y_units[0], y_units[0]))
                     # plot simulation and experimental data
                     add_plot_to_fig(sim_data, expt_data, expt, type=plot_type, xvals=conc, label_dict=label_dict,
-                                    title=expt_doses_dict.get('title', None), xlabel=expt_doses_dict.get('xlabel'),
-                                    ylabel=y_label, **kwargs)
-                    suffix[obs].append(expt.split('_'))  # for the filename
-
-            # complete and save the figures for each observable
-            for obs in all_observables:
-                plt.figure('%d_%d_%s' % (i, j, obs))
+                                    title=expt_doses_dict[expt].get('title', None),
+                                    xlabel=expt_doses_dict[expt].get('xlabel'), ylabel=y_label, **kwargs)
 
                 # adjust x-limits
-                if xlim is None:
-                    xmin = round_down_nice(min_conc)
-                    xmax = round_up_nice(max_conc)
+                xlim = expt_doses_dict[expt].get('xlim', None)
+                if xlim is None and plot_type == 'fill_between':
+                    xmin = round_down_nice(min(conc))
+                    xmax = round_up_nice(max(conc))
                     buffer = 0.05 * (xmax - xmin)  # 5% buffer
                     xlim = (xmin - buffer, xmax + buffer)
                 plt.xlim(xlim)
 
                 # adjust y-limits
+                ylim = expt_doses_dict[expt].get('ylim', None)
                 if ylim is None:
                     ylocs = plt.yticks()[0]
                     delta_y = ylocs[-1] - ylocs[-2]
@@ -388,28 +373,29 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
                     ylim = (0, 1.05 * top)  # 5% buffer
                 plt.ylim(ylim)
 
-                # set x- and y-ticks
-                if xticks is not None:
-                    plt.xticks(**xticks)
-                if yticks is not None:
-                    plt.yticks(**yticks)
+                # set x- and y-tick labels
+                xticklabels = expt_doses_dict[expt].get('xticklabels', None)
+                if xticklabels is not None:
+                    plt.xticks(expt_doses_dict[expt]['doses'], xticklabels)
+
+                yticklabels = expt_doses_dict[expt].get('yticklabels', None)
+                if yticklabels is not None:
+                    locs, _ = plt.yticks()
+                    plt.yticks(locs, yticklabels)
 
                 # merge line and fill_between legend handles
                 merge_legend(**kwargs.get('leg_kwargs', {}))
 
                 # save figure to file
-                filename = 'fig_PyDREAM_DRC'
-                for k in range(np.array(suffix[obs]).shape[1]):
-                    filename += '_' + '_'.join(np.unique([x[k] for x in suffix[obs]]))
-                filename += '_%s' % obs
+                filename = 'fig_PyDREAM_DRC_%s_%s' % (expt, obs)
                 plt.savefig(os.path.join(str(path), filename))
 
     if show_plot:
         plt.show()
 
 
-def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict=None, show_plot=True,
-                         **kwargs):
+def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, plot_type='fill_between', label_dict=None,
+                         show_plot=True, **kwargs):
 
     # process kwargs
     figsize = kwargs.get('figsize', (6.4 * 0.7, 4.8 * 0.9))
@@ -496,8 +482,8 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
                 for alt_expt_id, sim_data_chunk, expt_data_chunk in \
                         zip(alt_expt_ids, sim_data_chunks, expt_data_chunks):
                     label_dict[tc_id] = label_dict.get(alt_expt_id, alt_expt_id)  # map alt_expt_id to expt_id
-                    add_plot_to_fig(sim_data_chunk, expt_data_chunk, tc_id, label_dict=label_dict, xlabel=x_label,
-                                    ylabel=y_label, **kwargs)
+                    add_plot_to_fig(sim_data_chunk, expt_data_chunk, tc_id, type=plot_type, label_dict=label_dict,
+                                    xlabel=x_label, ylabel=y_label, **kwargs)
 
             # merge line and fill_between legend handles
             merge_legend(**kwargs.get('leg_kwargs', {}))
@@ -513,9 +499,11 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, la
 def plot_from_simdata(basepath, directories, run_pydream_filename, expt_doses=None, tc_ids=None, label_dict=None,
                       show_plot=True, **kwargs):
     if expt_doses is not None:
-        plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict, show_plot, **kwargs)
+        plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_doses, label_dict=label_dict,
+                              show_plot=show_plot, **kwargs)
     if tc_ids is not None:
-        plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict, show_plot, **kwargs)
+        plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, label_dict=label_dict,
+                             show_plot=show_plot, **kwargs)
 
     if expt_doses is None and tc_ids is None:
         warnings.warn("No drug doses or timecourse IDs were passed to `plot_from_simdata`")
