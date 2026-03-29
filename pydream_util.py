@@ -11,6 +11,7 @@ import glob
 import pysb
 from collections.abc import Iterable
 import re
+import multiprocessing
 
 
 def is_num_pair(obj):
@@ -867,3 +868,72 @@ def load_logps_and_param_samples(dirpath):
         samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
 
     return np.array(log_ps_chain), np.array(samples_chain)
+
+
+def iter_simulation_outputs_resilient(sample_args, run_fn, run_with_timeout_fn, timeout_seconds=None, n_procs=1):
+
+    batch_size = n_procs if n_procs > 1 else 1
+    n_total = len(sample_args)
+    i = 0
+
+    while i < n_total:
+        batch_end = min(i + batch_size, n_total)
+        batch = sample_args[i:batch_end]
+
+        if n_procs == 1:
+            for local_j, args in enumerate(batch):
+                global_idx = i + local_j
+                if timeout_seconds is None:
+                    yield global_idx, run_fn(args), False
+                else:
+                    yield global_idx, *run_with_timeout_fn(args, timeout_seconds)
+            i = batch_end
+            continue
+
+        import multiprocessing
+        pool = multiprocessing.Pool(processes=n_procs)
+        async_results = []
+
+        try:
+            for args in batch:
+                async_results.append(pool.apply_async(run_fn, (args,)))
+
+            batch_outputs = [None] * len(batch)
+            completed = [False] * len(batch)
+            timeout_triggered = False
+
+            for local_j, async_result in enumerate(async_results):
+                try:
+                    if timeout_seconds is None:
+                        batch_outputs[local_j] = async_result.get()
+                    else:
+                        batch_outputs[local_j] = async_result.get(timeout=timeout_seconds)
+                    completed[local_j] = True
+                except multiprocessing.TimeoutError:
+                    timeout_triggered = True
+                    break
+
+            if not timeout_triggered:
+                pool.close()
+                pool.join()
+                for local_j, output in enumerate(batch_outputs):
+                    yield i + local_j, output, False
+            else:
+                pool.terminate()
+                pool.join()
+
+                for local_j, output in enumerate(batch_outputs):
+                    if completed[local_j]:
+                        yield i + local_j, output, False
+
+                for local_j, args in enumerate(batch):
+                    if not completed[local_j]:
+                        yield i + local_j, *run_with_timeout_fn(args, timeout_seconds)
+
+        finally:
+            try: pool.close()
+            except: pass
+            try: pool.join()
+            except: pass
+
+        i = batch_end
