@@ -36,8 +36,7 @@ param_expts_map = {
     'k_tumor_dth': [['A'], ['B', 'C', 'D']],
     'k_tumor_div_TGFb': [['A'], ['B', 'C', 'D']],
     'k_tumor_PTHrP': [['A'], ['B', 'C', 'D']],
-    'k_tumor_OB': [['A'], ['B', 'C', 'D']],
-    'k_tumor_OC': [['A'], ['B', 'C', 'D']]
+    'k_tumor_OB': [['A'], ['B', 'C', 'D']]
 }
 
 sim_protocols = [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection]
