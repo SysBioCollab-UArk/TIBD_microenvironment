@@ -662,7 +662,7 @@ class ParameterCalibration(object):
     @staticmethod
     def plot_timecourses(model, tspans, sim_protocols, param_samples, parameter_idxs, observables=None, exp_data=None,
                          samples_idxs=None, show_plot=False, save_plot=True, separate_plots=True, timeout_seconds=None,
-                         n_procs=1, **kwargs):
+                         **kwargs):
 
         # if there's only one simulation to run, put the following objects inside a list of size 1, since the code
         # is set up to loop over the number of simulations
@@ -721,6 +721,10 @@ class ParameterCalibration(object):
         ylabels = kwargs.get('ylabels', [['amount'] * len(observables[n]) for n in range(n_sims)])
         leg_labels = kwargs.get('leg_labels', [[obs_name for obs_name in observables[n]] for n in range(n_sims)])
         save_sim_data = kwargs.get('save_sim_data', False)
+        num_tc = kwargs.get('num_tc', None)  # number of simulation to run - 'None' means run all
+        plot_type = kwargs.get('plot_type', 'fill')
+        n_procs = kwargs.get('n_procs', 1)
+
         # make sure arrays are 2D
         # NOTE: checking first elements of the 'colors', 'locs', and 'ylabels' arrays because they could be jagged, in
         # which case calling 'np.array' would raise an error
@@ -737,8 +741,9 @@ class ParameterCalibration(object):
         # run simulations using only unique parameter samples
         samples_unique, counts = np.unique(param_samples, return_counts=True, axis=0)
         # FOR DEBUGGING ###
-        # samples_unique = samples_unique[:100]
-        # counts = counts[:100]
+        if num_tc is not None:
+            samples_unique = samples_unique[:num_tc]
+            counts = counts[:num_tc]
         # #################
         # save simulation data, if requested
         if save_sim_data is not False:
@@ -753,9 +758,33 @@ class ParameterCalibration(object):
                 print("Experiment '%s' (%d of %d)..." % (str(experiments[n]), n+1, n_experiments))
             else:
                 print("Perturbation %d of %d..." % (n - n_experiments + 1, n_sims - n_experiments))
-            outputs = []
-            counts_n = counts.copy()  # don't change 'counts' array, make a copy
             # run simulations
+            outputs = []
+            ##########
+            # serial simulations
+            counts_n = counts.copy()  # don't change 'counts' array, make a copy
+            for i, sample in enumerate(samples_unique):
+                print(i, end=' ')
+                param_values[parameter_idxs] = 10 ** sample[samples_idxs[n]]
+                if timeout_seconds is None:
+                    outputs.append(sim_protocols[n].run(tspans[n], param_values))
+                else:  # use timeout option (if PyDREAM ran as expected, this shouldn't be necessary)
+                    output = None
+                    with multiprocessing.Pool(processes=1) as pool:
+                        future_output = pool.apply_async(run_simulation, (sim_protocols[n], tspans[n],
+                                                                          param_values,))
+                        try:
+                            output = future_output.get(timeout=timeout_seconds)  # Wait for completion
+                        except multiprocessing.TimeoutError:
+                            print(f"Skipping parameter sample {i} due to timeout.")
+                            pool.terminate()  # Kill the process if it exceeds the timeout
+                            counts_n = np.delete(counts_n, i, axis=0)  # remove counts for this parameter set
+                    if output is not None:
+                        outputs.append(output)
+                if (i + 1) % 20 == 0:
+                    print()
+            ##########
+            '''# parallel simulations (not yet working)
             sample_args = [
                 (sim_protocols[n], tspans[n], param_values, parameter_idxs, sample, samples_idxs[n])
                 for sample in samples_unique
@@ -772,7 +801,8 @@ class ParameterCalibration(object):
                     outputs.append(output)
                 if (i + 1) % 20 == 0:
                     print()
-            counts_n = counts[~timed_out_mask]
+            counts_n = counts[~timed_out_mask]'''
+            ##########
             print('DONE')
             # remove any simulations that produced NaNs or ended prematurely
             idx_remove = [i for i in range(len(outputs)) if np.any(np.isnan(outputs[i][observables[n][0]]))
@@ -781,8 +811,6 @@ class ParameterCalibration(object):
                 print('Removing simulations', idx_remove, 'that produced NaNs or ended prematurely')
             outputs = [o for i, o in enumerate(outputs) if i not in idx_remove]  # safe remove if 'outputs' is ragged
             counts_n = np.delete(counts_n, idx_remove, axis=0)
-            # use 'counts' to generate full set of simulation outputs for correct weighting of plots
-            # outputs = np.repeat(outputs, counts_n, axis=0)  # TODO
             # plot results
             for i, obs_name in enumerate(observables[n]):
                 print(obs_name)
@@ -793,28 +821,34 @@ class ParameterCalibration(object):
                 # plot simulated data as a percent envelope
                 print('   Simulated data...', end='')
                 yvals = np.array([output[obs_name] for output in outputs])
-                # reshape yvals_min and yvals_max to handle the case where multiple experiments are merged into one
-                # using the ParallelExperiments simulation protocol class
-                #####
-                # yvals_min = np.percentile(yvals, fill_between[0], axis=0).reshape(-1, len(tspans[n]))  # TODO
-                # yvals_max = np.percentile(yvals, fill_between[1], axis=0).reshape(-1, len(tspans[n]))  # TODO
-                #####
-                qs = weighted_percentile_linear_axis0(yvals, counts_n, fill_between)
-                yvals_min = qs[0].reshape(-1, len(tspans[n]))
-                yvals_max = qs[1].reshape(-1, len(tspans[n]))
-                #####
 
-                # loop over each sub-experiment (if there's only 1 expt, will only loop once)
-                hatch_patterns = [None, '/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*']
-                for j, (ymin, ymax) in enumerate(zip(yvals_min, yvals_max)):
-                    hatch = hatch_patterns[j % len(hatch_patterns)]
-                    plt.fill_between(tspans[n], ymin, ymax, alpha=0.25, color=colors[n][i], hatch=hatch,
-                                     hatch_linewidth=3, label=leg_labels[n][i])
-                    # save simulation data, if requested
-                    if save_sim_data:
-                        sim_id = experiments[n] if n < n_experiments else n
-                        for line in zip(tspans[n], ymin, ymax):
-                            csvwriter.writerow([obs_name] + list(line) + [sim_id])
+                # plot time course envelopes using weights based on the number of duplicates
+                if plot_type == 'fill':
+                    qs = weighted_percentile_linear_axis0(yvals, counts_n, fill_between)
+                    yvals_min = qs[0].reshape(-1, len(tspans[n]))
+                    yvals_max = qs[1].reshape(-1, len(tspans[n]))
+                    # loop over each sub-experiment (if there's only 1 expt, will only loop once)
+                    hatch_patterns = [None, '/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*']
+                    for j, (ymin, ymax) in enumerate(zip(yvals_min, yvals_max)):
+                        hatch = hatch_patterns[j % len(hatch_patterns)]
+                        plt.fill_between(tspans[n], ymin, ymax, alpha=0.25, color=colors[n][i], hatch=hatch,
+                                         hatch_linewidth=3, label=leg_labels[n][i])
+                        # save simulation data, if requested
+                        if save_sim_data:
+                            sim_id = experiments[n] if n < n_experiments else n
+                            for line in zip(tspans[n], ymin, ymax):
+                                csvwriter.writerow([obs_name] + list(line) + [sim_id])
+
+                # plot individual time courses
+                elif plot_type == 'tc':
+                    for j, yval in enumerate(yvals):
+                        label = leg_labels[n][i] if j == 0 else None
+                        plt.plot(tspans[n], yval, ls='--', alpha=0.5, color=colors[n][i], label=label)
+
+                else:
+                    raise Exception("'plot_type' (%s) not recognized in ParamCalibration.plot_timecourses()" %
+                                    plot_type)
+
                 print('DONE')
                 # plot experimental data
                 if n < n_experiments:
