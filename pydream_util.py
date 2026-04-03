@@ -318,6 +318,9 @@ def plot_drc_from_simdata(basepath, directories, run_pydream_filename, expt_dose
     if isinstance(directories, str):
         directories = [directories]
 
+    if isinstance(expt_doses, dict):
+        expt_doses = [expt_doses]
+
     if len(directories) != len(expt_doses):
         raise ValueError("'expt_doses' and 'directories' must have the same length")
 
