@@ -7,8 +7,10 @@ from matplotlib.textpath import TextPath
 from matplotlib.font_manager import FontProperties
 from matplotlib.colors import to_rgb
 import os
-import importlib
+import importlib.util
+from pathlib import Path
 import math
+import sys
 from pydream_util import get_fig_ncols
 
 
@@ -109,7 +111,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         E_Dself = [[None] * n_params for _ in range(2)]
     print('Plotting %d histogram overlays' % n_params)
     for n in range(n_params):
-        print(n, end=' ')
+        print(n, end='\n' if (n + 1) % 20 == 0 or n == n_params - 1 else ' ')
         # share x-axis with first subplot
         ax = fig_overlay.add_subplot(nrows, ncols, n + 1, sharex=reference_ax)
         if n == 0 and sharex:
@@ -147,7 +149,6 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
         # ax.label_outer()
         ax.set_title(labels_dict.get(param_labels[n], param_labels[n]),
                      fontsize=labelsize if title_fs is None else title_fs)
-    print()
     fig_overlay.supxlabel(r'log$_{10}$ value' + '\n\n', fontsize=fontsize if labels_fs is None else labels_fs)
     fig_overlay.supylabel('Density', fontsize=fontsize if labels_fs is None else labels_fs)
 
@@ -275,9 +276,20 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
         path = os.path.join(dirpath, directory)  # os.getcwd()
 
         # import everything from run_<...>_pydream.py file that's in the path
-        run_pydream_file = os.path.join(path, run_pydream_filename)
-        import_string = run_pydream_file.replace('/', '.').replace('\\', '.').rstrip('.py')
-        module = importlib.import_module(import_string)  # Import the module
+        path_str = str(Path(path).resolve())  # make it an absolute path
+        run_pydream_file = Path(path) / run_pydream_filename
+        module_name = f"{Path(directory).name}_{run_pydream_file.stem}"
+        added_to_syspath = False
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
+            added_to_syspath = True
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, run_pydream_file)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        finally:
+            if added_to_syspath:
+                sys.path.remove(path_str)
 
         # get the path to the experimental data file referenced in the run_<...>_pydream.py file that's in the path
         if not os.path.isabs(module.exp_data_file):
@@ -295,10 +307,10 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
                                           no_sample=module.no_sample,
                                           param_expts_map=module.param_expts_map)
 
-        _, (samples, groups, group_labels), _ = \
+        _, (samples, _, groups, group_labels), _ = \
             calibrator.create_figures(logps_files, samples_files, obs_labels=None, show_plots=True,
                                       plot_ll_args={'cutoff': 2, 'file_suffix': directory},
-                                      plot_pd_args={'sharex': 'all', 'bw_adjust': bw_adjust[i]},
+                                      plot_pd_args={'sharex': 'none', 'bw_adjust': bw_adjust[i]},
                                       which_plots=2)
 
         samples_ALL.append(samples)
@@ -345,8 +357,8 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
 
 if __name__ == '__main__':
 
-    dirpath = 'SAVED'
-    directories = ['Flav_FAD', 'Flav_Fumarate', 'Flav_Fumarate_FAD', 'Flav_Fumarate_FAD_Time']
+    dirpath = '../Mitochondrial_Complex_II/SAVED'
+    directories = ['Flav_FAD', 'Flav_Fumarate']  # , 'Flav_Fumarate_FAD', 'Flav_Fumarate_FAD_Time']
     run_pydream_filename = 'run_complex_II_pydream.py'
 
     kwargs = {
