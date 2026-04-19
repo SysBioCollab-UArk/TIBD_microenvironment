@@ -68,6 +68,46 @@ def write_multicolor_word(fig, x, y, word, colors, fontsize=10, fontweight='norm
         fig.text(x, y, text, ha='left', fontsize=fs, fontweight=fw, **additional_text)
 
 
+def align_groups_by_common_labels(groups, group_labels):
+    """
+    Given:
+        groups:        [groups0, groups1]
+        group_labels:  [labels0, labels1]
+
+    Each groups[k][j] corresponds to group_labels[k][j].
+
+    Returns:
+        new_groups, new_group_labels
+        where each sublist contains only entries with labels common to both.
+    """
+    new_groups = [[], []]
+    new_group_labels = [[], []]
+
+    for labels0, labels1, idxs0, idxs1 in zip(
+        group_labels[0], group_labels[1],
+        groups[0], groups[1]
+    ):
+        # Build lookup maps
+        map0 = dict(zip(labels0, idxs0))
+        map1 = dict(zip(labels1, idxs1))
+
+        # Find common labels (preserve order from labels0)
+        common_labels = [label for label in labels0 if label in map1]
+
+        # Extract corresponding indices
+        new_idxs0 = [map0[label] for label in common_labels]
+        new_idxs1 = [map1[label] for label in common_labels]
+
+        # Append to output
+        new_groups[0].append(new_idxs0)
+        new_groups[1].append(new_idxs1)
+
+        new_group_labels[0].append(common_labels)
+        new_group_labels[1].append(common_labels)
+
+    return new_groups, new_group_labels
+
+
 def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, show_plots=False, save_plots=True,
                        **kwargs):
 
@@ -93,7 +133,10 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     table_ncols = table_props.get('ncols', 2)
     table_scale = table_props.get('scale', None)  # stretch/squeeze embedded table
     table_nudge = table_props.get('nudge', None)  # move table horizontally and/or vertically
-    barplot_ymax = kwargs.get('barplot_ymax', None)
+    barplot_props = kwargs.get('barplot_props', {})
+    barplot_ymax = barplot_props.get('ymax', None)
+    barplot_labels_fs = barplot_props.get('labels', labels_fs)
+    barplot_ticks_fs = barplot_props.get('ticks', ticks_fs)
 
     ### Plot histogram distances with self distances ###
     n_params = len(param_labels)
@@ -194,9 +237,9 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     plt.bar(np.arange(len(sorted_idxs)), [D[i] for i in sorted_idxs])
     for i, e in enumerate([E_Dself[0][j] for j in sorted_idxs]):
         plt.plot([i - 0.4, i + 0.4], [e, e], color='r', lw=2)
-    plt.xlabel('Index', fontsize=labels_fs)
-    plt.ylabel('Histogram Distance', fontsize=labels_fs)
-    plt.tick_params(axis='both', which='major', labelsize=ticks_fs)
+    plt.xlabel('Index', fontsize=barplot_labels_fs)
+    plt.ylabel('Histogram Distance', fontsize=barplot_labels_fs)
+    plt.tick_params(axis='both', which='major', labelsize=barplot_ticks_fs)
     plt.ylim(top=barplot_ymax)
 
     # Add table to the barplot
@@ -270,6 +313,8 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
     bw_adjust = kwargs.get('bw_adjust', [1] * len(directories))  # default smoothing parameter
 
     samples_ALL = []
+    groups_ALL = []
+    group_labels_ALL = []
     for i, directory in enumerate(directories):
 
         # Set the 'path' variable to the directory where the SIM_DATA.csv, run_<...>_pydream.py, and expt data files are
@@ -292,10 +337,10 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
                 sys.path.remove(path_str)
 
         # get the path to the experimental data file referenced in the run_<...>_pydream.py file that's in the path
-        if not os.path.isabs(module.exp_data_file):
-            exp_data_file = os.path.normpath(os.path.join(path, module.exp_data_file))
+        if not os.path.isabs(module.expt_data_file):
+            exp_data_file = os.path.normpath(os.path.join(path, module.expt_data_file))
         else:
-            exp_data_file = os.path.normpath(module.exp_data_file)
+            exp_data_file = os.path.normpath(module.expt_data_file)
 
         logps_files = glob.glob(os.path.join(path, 'dreamzs*logps*'))
         samples_files = glob.glob(os.path.join(path, 'dreamzs*params*'))
@@ -314,6 +359,8 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
                                       which_plots=2)
 
         samples_ALL.append(samples)
+        groups_ALL.append(groups)
+        group_labels_ALL.append(group_labels)
 
     # Create figures with parameter histograms overlaid
     n_params_tot = len(calibrator.parameter_idxs)
@@ -327,15 +374,23 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
         sample_pair = np.array(sample_pair)
         print("Comparing histograms for '%s' and '%s'" % (directories[sample_pair[0]], directories[sample_pair[1]]))
 
+        # only compare histograms for parameters that are common in both samples
+        groups = [groups_ALL[i] for i in sample_pair]
+        group_labels = [group_labels_ALL[i] for i in sample_pair]
+        groups, group_labels = align_groups_by_common_labels(groups, group_labels)
+
         # Loop over parameter groups
-        for g, (group, param_labels) in enumerate(zip(groups, group_labels)):
-            two_samples = [samples_ALL[idx][:, group] for idx in sample_pair]
+        for g, (group0, group1, param_labels0, param_labels1) in \
+                enumerate(zip(groups[0], groups[1], group_labels[0], group_labels[1])):
+            if param_labels0 != param_labels1:
+                raise Exception('Parameter labels for both distributions do not match. Please try again.')
+            two_samples = [samples_ALL[idx][:, group] for idx, group in zip(sample_pair, [group0, group1])]
             hist_labels = [directories[idx] for idx in sample_pair]
-            E_Dself_g = E_Dself[sample_pair[:, None], np.array([group for _ in range(2)])]
+            E_Dself_g = E_Dself[sample_pair[:, None], np.array([group0, group1])]
             # Create figures by calling general overlay plotting function
-            fig_ov, fig_bp, E_Dself_g = plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself_g,
+            fig_ov, fig_bp, E_Dself_g = plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself_g,
                                                            show_plots=False, save_plots=False, **kwargs)
-            E_Dself[sample_pair[:, None], np.array([group for _ in range(2)])] = E_Dself_g
+            E_Dself[sample_pair[:, None], np.array([group0, group1])] = E_Dself_g
 
             # save overlay figure
             if save_plots is not False:
@@ -357,14 +412,20 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
 
 if __name__ == '__main__':
 
-    dirpath = '../Mitochondrial_Complex_II/SAVED'
-    directories = ['Flav_FAD', 'Flav_Fumarate']  # , 'Flav_Fumarate_FAD', 'Flav_Fumarate_FAD_Time']
-    run_pydream_filename = 'run_complex_II_pydream.py'
+    # dirpath = '../Mitochondrial_Complex_II/SAVED'
+    # directories = ['Flav_FAD', 'Flav_Fumarate']  # , 'Flav_Fumarate_FAD', 'Flav_Fumarate_FAD_Time']
+    # run_pydream_filename = 'run_complex_II_pydream.py'
+
+    dirpath = '../AorticCalcification/SAVE/Michael'
+    directories = ['Merryman2013_2A_prior1', 'Song4D_SMAD3_prior1']
+    run_pydream_filename = 'run_calcification_pydream.py'
 
     kwargs = {
         'fontsizes': {'labels': 22, 'ticks': 18, 'title': 18, 'legend': 14},
         'bw_adjust': [3.0, 2.0, 2.0, 2.0],  # histogram smoothing parameters (default = 1, > 1 = smoother)
-        'sharex': False
+        'sharex': False,
+        'table_props': {'fontsize': 28, 'ncols': 4, 'scale': (1, 2)},
+        'barplot_props': {'labels': 30, 'ticks': 28}
     }
 
     plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, show_plots=True, **kwargs)
