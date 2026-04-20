@@ -363,9 +363,9 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
         group_labels_ALL.append(group_labels)
 
     # Create figures with parameter histograms overlaid
-    n_params_tot = len(calibrator.parameter_idxs)
+    # n_params_tot = len(calibrator.parameter_idxs)
     # store E_Dself so don't need to recalculate
-    E_Dself = np.array([[None] * n_params_tot for _ in range(len(samples_ALL))])
+    # E_Dself = np.array([[None] * n_params_tot for _ in range(len(samples_ALL))])
     samples_ALL_idxs = np.arange(len(samples_ALL))
 
     # Loop over all (ref, sample) pairs
@@ -386,11 +386,13 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
                 raise Exception('Parameter labels for both distributions do not match. Please try again.')
             two_samples = [samples_ALL[idx][:, group] for idx, group in zip(sample_pair, [group0, group1])]
             hist_labels = [directories[idx] for idx in sample_pair]
-            E_Dself_g = E_Dself[sample_pair[:, None], np.array([group0, group1])]
+            # E_Dself_g = E_Dself[sample_pair[:, None], np.array([group0, group1])]
             # Create figures by calling general overlay plotting function
-            fig_ov, fig_bp, E_Dself_g = plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself_g,
+            # fig_ov, fig_bp, E_Dself_g = plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself=E_Dself_g,
+            #                                                show_plots=False, save_plots=False, **kwargs)
+            # E_Dself[sample_pair[:, None], np.array([group0, group1])] = E_Dself_g
+            fig_ov, fig_bp, _ = plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself=None,
                                                            show_plots=False, save_plots=False, **kwargs)
-            E_Dself[sample_pair[:, None], np.array([group0, group1])] = E_Dself_g
 
             # save overlay figure
             if save_plots is not False:
@@ -417,12 +419,15 @@ if __name__ == '__main__':
     # run_pydream_filename = 'run_complex_II_pydream.py'
 
     dirpath = '../AorticCalcification/SAVE/Michael'
-    directories = ['Merryman2013_2A_prior1', 'Song4D_SMAD3_prior1']
+    directories = ['Merryman2013_2A_prior1', 'Merryman2013_2AB_Song4D_prior1']
+    # directories = ['Merryman2013_2A_prior1', 'Merryman2013_2B_prior1', 'Merryman2013_2AB_prior1', 'Song4D_SMAD3_prior1',
+    #                'Merryman2013_2AB_Song4D_prior1', 'Messika']
+    # 'Song4D_SMAD3_prior1', 'Merryman2013_2AB_prior1', 'Merryman2013_2AB_Song4D_prior1'
     run_pydream_filename = 'run_calcification_pydream.py'
 
     kwargs = {
         'fontsizes': {'labels': 22, 'ticks': 18, 'title': 18, 'legend': 14},
-        'bw_adjust': [3.0, 2.0, 2.0, 2.0],  # histogram smoothing parameters (default = 1, > 1 = smoother)
+        'bw_adjust': [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],  # histogram smoothing parameters (default = 1, > 1 = smoother)
         'sharex': False,
         'table_props': {'fontsize': 28, 'ncols': 4, 'scale': (1, 2)},
         'barplot_props': {'labels': 30, 'ticks': 28}
