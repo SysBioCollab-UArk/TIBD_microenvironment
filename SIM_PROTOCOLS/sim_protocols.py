@@ -197,6 +197,44 @@ class ParallelExperiments(SimulationProtocol):
         return output
 
 
+class ScaleBkProtocol(object):
+
+    def __init__(self, sim_protocol, observables, expt_data):
+        self.sim_protocol = sim_protocol
+        self.observables = [observables] if isinstance(observables, str) else observables
+        self.expt_data = expt_data
+        self.fit_Bk_func = self._fit_Bk_weighted if 'stderr' in self.expt_data.columns else self._fit_Bk
+        self.t_data = np.sort(self.expt_data['time'].unique())
+        self.tspan_idxs = None
+        self.tspan_mask = {}
+        for obs in self.expt_data['observable'].unique():
+            t_data_obs = np.sort(self.expt_data[self.expt_data['observable'] == obs]['time'].unique())
+            self.tspan_mask[obs] = np.searchsorted(self.t_data, t_data_obs)
+
+    @staticmethod
+    def _fit_Bk(y_sim, expt_data):
+        y_data = expt_data['average'].to_numpy()
+        return np.sum(y_sim * y_data) / np.sum(y_sim ** 2)
+
+    @staticmethod
+    def _fit_Bk_weighted(y_sim, expt_data):
+        y_data = expt_data['average'].to_numpy()
+        sigma = expt_data['stderr'].to_numpy()
+        w = 1 / sigma ** 2
+        return np.sum(w * y_sim * y_data) / np.sum(w * y_sim ** 2)
+
+    def run(self, tspan, param_values):
+        if self.tspan_idxs is None:  # determine these indices just once
+            self.tspan_idxs = list(np.searchsorted(self.t_data, tspan))
+        output_all = self.sim_protocol.run(tspan, param_values)
+        for obs in self.observables:
+            y_sim = output_all[obs][self.tspan_idxs][self.tspan_mask[obs]]
+            expt_data_obs = self.expt_data[self.expt_data['observable'] == obs]
+            B_k = self.fit_Bk_func(y_sim, expt_data_obs)
+            output_all[obs] *= B_k
+        return output_all
+
+
 if __name__ == "__main__":
     from MODELS.TIBD_PopD_v1 import model
     from MODULES.perturbations import add_bisphosphonate_components
