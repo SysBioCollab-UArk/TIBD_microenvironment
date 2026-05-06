@@ -1,7 +1,7 @@
 import os
 import sys
 # import the run_<...>_pydream file from the directory where you ran PyDREAM from
-dirpath = os.path.join('MODELS', 'SAVE', 'Leonard', 'Bennett2024_Johnson2011_stderr_2abs')
+dirpath = os.path.join('MODELS', 'SAVE', 'Hrishi', 'Bennett2024_Johnson2011_stderr_5abs_2abs_model_v2')
 sys.path.insert(0, dirpath)
 from run_tibd_pydream import *
 
@@ -20,12 +20,23 @@ kwargs = {'obs_labels': obs_labels, 'show_plots': True,
           'plot_tc_args': {'separate_plots': False, 'save_sim_data': True},
           'which_plots': 2}
 
-_, (param_samples, param_groups, param_labels), _ = plot_pydream_output(dirpath, calibrator, **kwargs)
+_, (param_samples, param_groups, param_labels), _ = plot_pydream_output(dirpath, calibrator, max_iter=500000, **kwargs)
 
 #### Run drug prediction simulations using the 'plot_timecourses' function ####
+'''
 sim_protocols = calibrator.sim_protocols + [tumor_bisphos_injection]
 tspans = [np.linspace(0, 28, 281)] * len(sim_protocols)
 samples_idxs = calibrator.samples_idxs + [calibrator.samples_idxs[0]]
+'''
+#####
+sim_protocols = calibrator.sim_protocols[:2]
+tspans = [np.linspace(0, 28, 281)] * len(sim_protocols)
+# use values of 'k_tumor_PTHrP' for bone clones with values of all parameters for parentals
+p_idx = [calibrator.model.parameters[i].name for i in calibrator.parameter_idxs].index('k_tumor_PTHrP')
+new_sample_idxs = calibrator.samples_idxs[1]
+new_sample_idxs[p_idx] = calibrator.samples_idxs[0][p_idx]
+samples_idxs = [calibrator.samples_idxs[1], new_sample_idxs]  # parental, parental w/ k_tumor_PTHrP from bone clones
+#####
 # plot all observables for all experiments, even if there's no data for them
 observables = [calibrator.observables[0]] * len(sim_protocols)
 xlabel = 'time (day)'
