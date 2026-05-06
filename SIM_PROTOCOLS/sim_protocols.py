@@ -225,7 +225,7 @@ class ScaleBkProtocol(object):
 
     def run(self, tspan, param_values):
         if self.tspan_idxs is None:  # determine these indices just once
-            self.tspan_idxs = list(np.searchsorted(self.t_data, tspan))
+            self.tspan_idxs = list(np.searchsorted(tspan, self.t_data))
         output_all = self.sim_protocol.run(tspan, param_values)
         for obs in self.observables:
             y_sim = output_all[obs][self.tspan_idxs][self.tspan_mask[obs]]
