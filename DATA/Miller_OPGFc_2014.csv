@@ -1,0 +1,65 @@
+﻿observable,time,time_units,average,stderr,amount_units,expt_id,alt_expt_id
+Tumor_BLI,6,day,7.899,0.089,log10(photons/sec),Miller2014_Fig3_A,PBS-Tumor Control
+Tumor_BLI,9,day,8.498,0.089,log10(photons/sec),Miller2014_Fig3_A,PBS-Tumor Control
+Tumor_BLI,13,day,9.348,0.134,log10(photons/sec),Miller2014_Fig3_A,PBS-Tumor Control
+Tumor_BLI,16,day,9.939,0.134,log10(photons/sec),Miller2014_Fig3_A,PBS-Tumor Control
+Tumor_BLI,19,day,10.215,0.0525,log10(photons/sec),Miller2014_Fig3_A,PBS-Tumor Control
+Tumor_BLI,6,day,7.761,0.061,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 1 Preventative
+Tumor_BLI,9,day,8.19,0.0525,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 1 Preventative
+Tumor_BLI,13,day,8.765,0.162,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 1 Preventative
+Tumor_BLI,16,day,9.121,0.0935,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 1 Preventative
+Tumor_BLI,19,day,9.567,0.1055,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 1 Preventative
+Tumor_BLI,6,day,7.826,0.0445,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 7 Established
+Tumor_BLI,9,day,8.36,0.061,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 7 Established
+Tumor_BLI,13,day,8.927,0.081,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 7 Established
+Tumor_BLI,16,day,9.34,0.113,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 7 Established
+Tumor_BLI,19,day,9.721,0.073,log10(photons/sec),Miller2014_Fig3_A,OPG-Fc Day 7 Established
+Tumor_BLI,4,day,6.212,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,7,day,6.246,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,10,day,6.665,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,13,day,6.888,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,18,day,7.576,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,21,day,7.845,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,27,day,8.487,0.14,log10(photons/sec),Miller2014_Fig3_C,PBS Day 1 Control
+Tumor_BLI,4,day,6.061,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,7,day,6.108,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,10,day,6.483,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,13,day,6.693,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,18,day,7.1,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,21,day,7.37,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,27,day,7.98,0.096,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 1 Preventative
+Tumor_BLI,4,day,6.092,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,7,day,6.155,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,10,day,6.504,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,13,day,6.814,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,18,day,7.347,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,21,day,7.65,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,27,day,8.052,0.146,log10(photons/sec),Miller2014_Fig3_C,OPG-Fc Day 7 Therapeutic
+Tumor_BLI,2,day,6.635,0.237,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,5,day,7.023,0.229,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,8,day,7.513,0.2185,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,12,day,8.299,0.2155,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,15,day,8.735,0.21,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,18,day,9.214,0.215,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,21,day,9.645,0.215,log10(photons/sec),Miller2014_Fig4_A,PBS-Control
+Tumor_BLI,2,day,6.619,0.1745,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,5,day,7.012,0.172,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,8,day,7.389,0.097,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,12,day,7.809,0.065,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,15,day,8.067,0.0755,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,18,day,8.401,0.078,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,21,day,8.789,0.081,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc Therapeutic
+Tumor_BLI,2,day,6.668,0.226,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,5,day,7.023,0.221,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,8,day,7.039,0.21,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,12,day,7.351,0.2095,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,15,day,7.384,0.21,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,18,day,7.707,0.218,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,21,day,8.17,0.441,log10(photons/sec),Miller2014_Fig4_A,DTX Therapeutic
+Tumor_BLI,2,day,6.619,0.1215,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
+Tumor_BLI,5,day,7.017,0.1215,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
+Tumor_BLI,8,day,6.915,0.102,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
+Tumor_BLI,12,day,6.915,0.116,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
+Tumor_BLI,15,day,6.813,0.094,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
+Tumor_BLI,18,day,6.808,0.0885,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
+Tumor_BLI,21,day,7.125,0.1615,log10(photons/sec),Miller2014_Fig4_A,OPG-Fc + DTX Therapeutic
