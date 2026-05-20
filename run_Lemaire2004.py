@@ -24,7 +24,7 @@ def get_exp_data(filepath):
 
 
 # experimental data
-exp_data = get_exp_data(os.path.join('OLD', 'Mouse_Data_May2024.csv'))
+exp_data = get_exp_data(os.path.join('OLD_CODE', 'Mouse_Data_May2024.csv'))
 
 # create the model
 Model()
