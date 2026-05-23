@@ -77,19 +77,25 @@ def create_model_elements():
 
     alias_model_components()
 
-    # cell dynamics rules
+    # expressions
+    # Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # fM/day
     Expression('DR_pi_C', DR * pi_C)  # fM/day
+
+    # Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
     Expression('DB_over_pi_C', f0 * dB / pi_C)  # /day
-    # Expression('DC_pi_L', DC * pi_L)  # fM/day
+
+    # Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
     Expression('DA_pi_C', DA * pi_C)  # /day
 
-    # Expression('DR_pi_C', DR * (C_obs + f0*Cs) / (C_obs + Cs))  # fM/day
-    # Expression('DB_over_pi_C', f0 * dB / ((C_obs + f0*Cs) / (C_obs + Cs)))  # /day
-    Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # fM/day
-    # Expression('DA_pi_C', DA * (C_obs + f0*Cs) / (C_obs + Cs))  # /day
+    # Expression('DC_pi_L', DC * pi_L)  # fM/day
+    # Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # fM/day
+    Expression('Ltot_over_L', 1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO))
+    alias_model_components()
+    Expression('DC_pi_L', DC * k3/k4 * KLP * ((IP/kP + SP/kP)/(IP/kP + k6/k5)) * B_obs / Ltot_over_L * (1 + IL/rL))  # fM/day
 
     alias_model_components()
 
+    # cell dynamics rules
     Rule('ROB_creation', None >> R(), DR_pi_C)
     Rule('ROB_to_AOB', R() >> B(), DB_over_pi_C)
     Rule('AOB_death', B() >> None, kB)

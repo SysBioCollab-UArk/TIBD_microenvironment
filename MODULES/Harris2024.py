@@ -66,6 +66,9 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
         k2_C_consumes_bone.value = 0.1
         nC.value = 0.1
 
+    else:
+        raise Exception('Unknown OB_OC_BONE_MODEL (%s).' % str(OB_OC_BONE_MODEL))
+
     alias_model_components()
 
     Initial(Bone(), Bone_0)
@@ -100,22 +103,28 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
     alias_model_components()
     Expression('k_tumor_div', k_tumor_div_basal + k_tumor_div_TGFb * pi_C)
 
-    Observable('Tumor_tot', Tumor())
+    # Total number of tumor cells
+    Observable('Tumor_tot', Tumor())  # Def. can change depending on what types of tumor cells are in the model
+
+    # Number of this specific type of tumor cell (the default)
+    Observable('Tumor_obs', Tumor())
 
     alias_model_components()
 
     # rate expressions
-    Expression('k_tumor_cc', CC_ON * (k_tumor_div - k_tumor_dth) / N)
-    Expression('k_tumor_allee',
-               Piecewise((0, Tumor_tot <= 0),
-                         (ALLEE_ON * (k_tumor_div - k_tumor_dth) / (A * Tumor_tot), True)))
+    # Expression('k_tumor_cc', CC_ON * (k_tumor_div - k_tumor_dth) / N)
+    Expression('k_tumor_cc', Piecewise(
+        (0, Tumor_obs <= 0), (CC_ON * (k_tumor_div - k_tumor_dth) / N * Tumor_tot / Tumor_obs, True)))
+
+    Expression('k_tumor_allee', Piecewise(
+        (0, Tumor_tot <= 0), (ALLEE_ON * (k_tumor_div - k_tumor_dth) / (A * Tumor_tot), True)))
 
     alias_model_components()
 
-    Rule('tumor_division', Tumor() >> Tumor() + Tumor(), k_tumor_div)
-    Rule('tumor_death', Tumor() >> None, k_tumor_dth)
-    Rule('tumor_cc', Tumor() + Tumor() >> Tumor(), k_tumor_cc)
-    Rule('tumor_allee', Tumor() >> None, k_tumor_allee)
+    Rule('Tumor_division', Tumor() >> Tumor() + Tumor(), k_tumor_div)
+    Rule('Tumor_death', Tumor() >> None, k_tumor_dth)
+    Rule('Tumor_cc', Tumor() + Tumor() >> Tumor(), k_tumor_cc)
+    Rule('Tumor_allee', Tumor() >> None, k_tumor_allee)
 
     # Make PTH (i.e., PTHrP) synthesis rate a function of the number of tumor cells
     Parameter('k_tumor_PTHrP', 5e2)  # 1/day

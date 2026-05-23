@@ -10,14 +10,14 @@ def add_bisphosphonate_components():
     Initial(Bisphos(), Bisphos_0)
     Rule('AOC_death_bisphos', Bisphos() + C() >> Bisphos(), k_bisphos_AOC)
 
-def add_denosumab_components():
-    Monomer('Denosumab')
-    Parameter('Denosumab_0', 100)  # fM
-    Parameter('kf_DL', 1)  # 1/fM-s
-    Parameter('kr_DL', 1)  # 1/s
+def add_RANKLi_components():
+    Monomer('RANKLi')
+    Parameter('RANKLi_0', 0)  # fM
+    # binding and unbinding rate constants for RANKLi + RANKL <-> RANKLi % RANKL
+    Parameter('kf_IL', 1)  # 1/fM-s
+    Parameter('kr_IL', 1)  # 1/s
     alias_model_components()
-    Initial(Denosumab(), Denosumab_0)
-    Observable('Denosumab_tot', Denosumab())
+    Initial(RANKLi(), RANKLi_0)
+    Observable('RANKLi_tot', RANKLi())
     alias_model_components()
     DC_pi_L.expr = DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO) + kf_DL/kr_DL*Denosumab_tot)  # fM/day
-
