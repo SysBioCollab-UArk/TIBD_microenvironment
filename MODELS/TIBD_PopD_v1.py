@@ -15,37 +15,93 @@ kB.value = 0.013  # /day
 
 
 if __name__ == '__main__':
-
     from param_calibration import *
     from pysb.simulator import ScipyOdeSimulator
     from SIM_PROTOCOLS.sim_protocols import SequentialInjections
+    from MODULES.perturbations import *
     import pandas as pd
+    from matplotlib.lines import Line2D
+
+    add_bisphosphonate_components()
+    add_RANKLi_components()
+    add_tumor_RANK_components()
 
     solver = ScipyOdeSimulator(model)
+
     tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={0: ("Tumor()", 1)})
+    tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
+                                                   time_perturb_value={0: ('Tumor()', 1), 6: ('Bisphos()', 1)})
+    tumor_RANKLi_injection = SequentialInjections(solver, t_equil=500,
+                                                  time_perturb_value={0: ('Tumor()', 1), 6: ('RANKLi()', 10)})
+
     custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
     no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_WT_0', 'CC_ON', 'nB', 'nC',
                  'ALLEE_ON', 'A']
-    obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts',
-                  'Tumor_tot': 'tumor cells'}
+    obs_labels = {'Bone_tot': 'Bone Density', 'C_obs': 'Osteoclasts', 'OB_tot': 'Osteoblasts',
+                  'Tumor_tot': 'Tumor Cells'}
 
-    # Run a simple simulation
-    tspan = np.linspace(0, 21, 211)
-    params_df = pd.read_csv('fit_params.csv')
+    # Run a simulation
+    tspan = np.linspace(0, 28, 281)
+    params_df = pd.read_csv('fit_params_PAR.csv')  # parental parameter values
     params_dict = dict(zip(params_df['parameter'], params_df['value']))
+    params_df = pd.read_csv('fit_params_BONE.csv', index_col='parameter')  # bone clone parameter values
+    new_params = {
+        'k_tumorKL_div_basal': 'k_tumor_div_basal',
+        'k_tumorKL_div_TGFb': 'k_tumor_div_TGFb',
+        'k_tumorKL_dth': 'k_tumor_dth',
+        'k_tumorKL_PTHrP': 'k_tumor_PTHrP',
+        'k_tumorKL_OB': 'k_tumor_OB'
+    }
+    for p in new_params.keys():
+        params_dict[p] = params_df.loc[new_params[p], 'value']
     param_values = [params_dict.get(p.name, p.value) for p in model.parameters]
-    result = tumor_injection.run(tspan, param_values)
 
-    fig, axs = plt.subplots(2, 2, sharex=True, constrained_layout=True)
-    axs_flat = axs.flatten()
-    for obs, ax in zip(obs_labels.keys(), axs_flat):
-        ax.plot(tspan, result[obs], lw=2, label=obs)
-        # if obs == 'Tumor_tot':
-        #     ax.plot(tspan, result['Tumor_WT_tot'], lw=3, ls=':', label='Tumor_WT_tot')
-        #     ax.plot(tspan, result['Tumor_RANK_tot'], lw=3, ls=':', label='Tumor_RANK_tot')
-        ax.set_xlabel('Time (day)')
-        ax.set_ylabel('Amount')
-        ax.legend(loc='best')
+    results = [
+        ('Control', tumor_injection.run(tspan, param_values)),
+        ('+ZA'    , tumor_bisphos_injection.run(tspan, param_values)),
+        ('+RANKLi', tumor_RANKLi_injection.run(tspan, param_values))
+    ]
+
+    # plot simulation results
+    fig_all, axs_all = plt.subplots(2, 2, sharex=True, constrained_layout=True)
+    axs_flat_all = axs_all.flatten()
+    fig_tumor, axs_tumor = plt.subplots(len(results), 1, sharex=True, constrained_layout=True,
+                                        figsize=(0.65 * 6.4, 1.25 * 4.8))
+    axs_flat_tumor = axs_tumor.flatten()
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    for i, (label, result) in enumerate(results):
+        # tumor plot
+        axs_flat_tumor[i].plot(tspan, result['Tumor_tot'], lw=3, ls='-', color=colors[i], label='Tumor cells')
+        axs_flat_tumor[i].plot(tspan, result['Tumor_obs'], lw=2, ls='--', color='0.5', label=r'RANK$^-$')
+        axs_flat_tumor[i].plot(tspan, result['TumorK_tot'], lw=2, ls=':', color='0.5', label=r'RANK$^+$')
+        axs_flat_tumor[i].plot(tspan, result['TumorK_u'], lw=1, ls='--', color='r', label=r'K$^+$ unbound')
+        axs_flat_tumor[i].plot(tspan, result['TumorK_L'], lw=1, ls=':', color='r', label=r'K$^+$-RANKL')
+        if i == len(results) - 1:
+            axs_flat_tumor[i].set_xlabel('Time (day)')
+        axs_flat_tumor[i].set_ylabel('Amount')
+        axs_flat_tumor[i].set_xticks(range(0, int(tspan[-1]) + 1, 7))
+        # axs_flat_tumor[i].set_title(label, color=colors[i], fontsize=12, fontweight='bold')
+        axs_flat_tumor[i].annotate(label, xy=(0.1, 0.85), xycoords='axes fraction', color=colors[i], fontsize=12,
+                                   fontweight='bold')
+        # all observables
+        for obs, ax in zip(obs_labels.keys(), axs_flat_all):
+            ax.plot(tspan, result[obs], lw=3, label=label)
+            if obs in ['OB_tot', 'Tumor_tot']:
+                ax.set_xlabel('Time (day)')
+            if obs in ['Bone_tot', 'OB_tot']:
+                ax.set_ylabel('Amount')
+            ax.set_xticks(range(0, int(tspan[-1]) + 1, 7))
+            ax.set_title(obs_labels[obs])
+    # # Leave space on the right for the legend
+    fig_all.subplots_adjust(right=0.8)
+    fig_tumor.subplots_adjust(right=0.8)
+    # Add figure-level legends
+    handles, labels = axs_flat_all[0].get_legend_handles_labels()
+    fig_all.legend(handles, labels, frameon=False, loc='outside right upper')
+    handles, labels = axs_flat_tumor[0].get_legend_handles_labels()
+    handles[0] = Line2D([0], [0], color='k', lw=3, linestyle='-')
+    fig_tumor.legend(handles, labels, frameon=False, loc='outside right upper')
+
     plt.show()
 
     # EXAMPLE 1

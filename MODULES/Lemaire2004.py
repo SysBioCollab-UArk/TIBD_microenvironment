@@ -89,9 +89,10 @@ def create_model_elements():
 
     # Expression('DC_pi_L', DC * pi_L)  # fM/day
     # Expression('DC_pi_L', DC * k3/k4 * KLP*((IP/kP + SP/kP) / (IP/kP + k6/k5))*B_obs * (1 + IL/rL) / (1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO)))  # fM/day
-    Expression('Ltot_over_L', 1 + k3*K/k4 + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO))
+    Expression('L_numer', KLP * ((IP/kP + SP/kP) / (IP/kP + k6/k5)) * B_obs * (1 + IL/rL))
+    Expression('L_denom', 1 + k3/k4*K + k1/k2/kO*(KOP/((IP/kP + SP/kP) / (IP/kP + k6/k5))*R_obs + IO))
     alias_model_components()
-    Expression('DC_pi_L', DC * k3/k4 * KLP * ((IP/kP + SP/kP)/(IP/kP + k6/k5)) * B_obs / Ltot_over_L * (1 + IL/rL))  # fM/day
+    Expression('DC_pi_L', DC * k3/k4 * L_numer / L_denom)  # fM/day
 
     alias_model_components()
 

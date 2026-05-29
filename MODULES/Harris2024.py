@@ -130,7 +130,7 @@ def create_model_elements(OB_OC_BONE_MODEL=1):
     Parameter('k_tumor_PTHrP', 5e2)  # 1/day
     alias_model_components()
     # PTHrP expression in tumor cells depends on TGF-beta occupancy pi_C
-    IP.expr = sympify(IP_const + k_tumor_PTHrP * pi_C * Tumor_tot)
+    IP.expr = sympify(IP_const + k_tumor_PTHrP * pi_C * Tumor_obs)
 
     # Hypothesize that tumor cells secrete a factor that promotes OB death
     Parameter('k_tumor_OB', 0.002)  # 1/fM-day  # 0.01
