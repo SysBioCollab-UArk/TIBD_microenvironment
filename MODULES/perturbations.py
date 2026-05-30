@@ -26,11 +26,22 @@ def add_RANKLi_components():
     L_denom.expr += kact_IL * RANKLi_tot
 
 
-def add_tumor_RANK_components():
+def add_tumor_migration_components(tumor_mp=None):
+    if tumor_mp is None:
+        tumor_mp = Tumor()
+    mon_name = str(tumor_mp).split('(')[0]
+    tumor_mon_out = Monomer('%s_out' % mon_name)  # tumor cells outside the bone microenvironment
+    tumor_out_init = Parameter('%s_out_0' % mon_name, 0)
+    k_migrate = Parameter('k_%s_migrate' % mon_name, 0.1)  # 1/day
+    Initial(tumor_mon_out(), tumor_out_init)
+    Observable('%s_out_obs' % mon_name, tumor_mon_out())
+    Rule('%s_migrate' % mon_name, tumor_mon_out() >> tumor_mp, k_migrate)
 
+
+def add_tumor_RANK_components(tumorK_migration=False):
     Monomer('TumorK', ['state'], {'state': ['u', 'L']})
     Parameter('TumorK_0', 0)
-    Parameter('k_T_adapt', 0.05)  # adaptation rate constant for Tumor -> TumorK cells
+    Parameter('k_T_adapt', 0.05)  # adaptation rate constant for Tumor -> TumorK cells (1/day)
     # Rate constants for RANKL binding/unbinding to TumorK cells
     Parameter('kf_TK_L', 0.1)
     Parameter('kr_TK_L', 1)
@@ -93,3 +104,8 @@ def add_tumor_RANK_components():
     alias_model_components()
     Rule('TumorKu_allee', TumorK(state='u') >> None, k_tumor_allee)
     Rule('TumorKL_allee', TumorK(state='L') >> None, k_tumorKL_allee)
+
+    # 7. TumorK migration to the tumor microenvironment (e.g., intracardiac tumor injection)
+    if tumorK_migration:
+        add_tumor_migration_components(tumor_mp=TumorK(state='u'))
+

@@ -24,15 +24,24 @@ if __name__ == '__main__':
 
     add_bisphosphonate_components()
     add_RANKLi_components()
-    add_tumor_RANK_components()
+    add_tumor_RANK_components(tumorK_migration=True)
+    add_tumor_migration_components()
 
     solver = ScipyOdeSimulator(model)
 
-    tumor_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={0: ("Tumor()", 1)})
-    tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
-                                                   time_perturb_value={0: ('Tumor()', 1), 6: ('Bisphos()', 1)})
-    tumor_RANKLi_injection = SequentialInjections(solver, t_equil=500,
-                                                  time_perturb_value={0: ('Tumor()', 1), 6: ('RANKLi()', 10)})
+    tumor_tibia_injection = \
+        SequentialInjections(solver, t_equil=500, time_perturb_value={0: ("Tumor()", 1)})
+    tumor_bisphos_tibia_injection = \
+        SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor()', 1), 6: ('Bisphos()', 1)})
+    tumor_RANKLi_tibia_injection = \
+        SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor()', 1), 6: ('RANKLi()', 10)})
+
+    tumor_cardiac_injection = \
+        SequentialInjections(solver, t_equil=500, time_perturb_value={0: ("Tumor_out()", 1)})
+    tumor_bisphos_cardiac_injection = \
+        SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor_out()', 1), 6: ('Bisphos()', 1)})
+    tumor_RANKLi_cardiac_injection = \
+        SequentialInjections(solver, t_equil=500, time_perturb_value={0: ('Tumor_out()', 1), 6: ('RANKLi()', 10)})
 
     custom_priors = {'N': ('uniform', 0.3)}  # , 'nB': ('norm', 1), 'nC': ('norm', 1)}
     no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_WT_0', 'CC_ON', 'nB', 'nC',
@@ -57,21 +66,25 @@ if __name__ == '__main__':
     param_values = [params_dict.get(p.name, p.value) for p in model.parameters]
 
     results = [
-        ('Control', tumor_injection.run(tspan, param_values)),
-        ('+ZA'    , tumor_bisphos_injection.run(tspan, param_values)),
-        ('+RANKLi', tumor_RANKLi_injection.run(tspan, param_values))
+        ('Ctrl tibia',      tumor_tibia_injection.run(tspan, param_values)),
+        ('+ZA tibia'    ,   tumor_bisphos_tibia_injection.run(tspan, param_values)),
+        ('+RANKLi tibia',   tumor_RANKLi_tibia_injection.run(tspan, param_values)),
+        ('Ctrl cardiac',    tumor_cardiac_injection.run(tspan, param_values)),
+        ('+ZA cardiac',     tumor_bisphos_cardiac_injection.run(tspan, param_values)),
+        ('+RANKLi cardiac', tumor_RANKLi_cardiac_injection.run(tspan, param_values))
     ]
 
     # plot simulation results
     fig_all, axs_all = plt.subplots(2, 2, sharex=True, constrained_layout=True)
     axs_flat_all = axs_all.flatten()
-    fig_tumor, axs_tumor = plt.subplots(len(results), 1, sharex=True, constrained_layout=True,
-                                        figsize=(0.65 * 6.4, 1.25 * 4.8))
-    axs_flat_tumor = axs_tumor.flatten()
+    fig_tumor, axs_tumor = plt.subplots(len(results) // 2, 2, sharex=True, sharey='row', constrained_layout=True,
+                                        figsize=(1 * 6.4, 1.25 * 4.8))
+    axs_flat_tumor = axs_tumor.flatten(order='F')
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     for i, (label, result) in enumerate(results):
         # tumor plot
-        axs_flat_tumor[i].plot(tspan, result['Tumor_tot'], lw=3, ls='-', color=colors[i], label='Tumor cells')
+        axs_flat_tumor[i].plot(tspan, result['Tumor_tot'], lw=3, ls='-', color=colors[i % (len(results) // 2)],
+                               label='Tumor cells')
         axs_flat_tumor[i].plot(tspan, result['Tumor_obs'], lw=2, ls='--', color='0.5', label=r'RANK$^-$')
         axs_flat_tumor[i].plot(tspan, result['TumorK_tot'], lw=2, ls=':', color='0.5', label=r'RANK$^+$')
         axs_flat_tumor[i].plot(tspan, result['TumorK_u'], lw=1, ls='--', color='r', label=r'K$^+$ unbound')
@@ -80,12 +93,12 @@ if __name__ == '__main__':
             axs_flat_tumor[i].set_xlabel('Time (day)')
         axs_flat_tumor[i].set_ylabel('Amount')
         axs_flat_tumor[i].set_xticks(range(0, int(tspan[-1]) + 1, 7))
-        # axs_flat_tumor[i].set_title(label, color=colors[i], fontsize=12, fontweight='bold')
-        axs_flat_tumor[i].annotate(label, xy=(0.1, 0.85), xycoords='axes fraction', color=colors[i], fontsize=12,
-                                   fontweight='bold')
-        # all observables
+        axs_flat_tumor[i].annotate(label, xy=(0.1, 0.85), xycoords='axes fraction', color=colors[i % (len(results) // 2)],
+                                   fontsize=12, fontweight='bold')
+        # all observables plot
         for obs, ax in zip(obs_labels.keys(), axs_flat_all):
-            ax.plot(tspan, result[obs], lw=3, label=label)
+            ls, lw = ('-', 3) if i < len(results) // 2 else ('--', 2)
+            ax.plot(tspan, result[obs], lw=lw, ls=ls, color=colors[i % (len(results) // 2)], label=label)
             if obs in ['OB_tot', 'Tumor_tot']:
                 ax.set_xlabel('Time (day)')
             if obs in ['Bone_tot', 'OB_tot']:
