@@ -1,5 +1,5 @@
 from MODELS.TIBD_PopD_v1 import model
-from MODULES.perturbations import add_bisphosphonate_components, add_denosumab_components
+from MODULES.perturbations import add_bisphosphonate_components, add_RANKLi_components
 from param_calibration import *
 from pysb.simulator import ScipyOdeSimulator
 from SIM_PROTOCOLS.sim_protocols import *
@@ -9,7 +9,7 @@ this_dir = os.path.dirname(__file__)
 expt_data_file = os.path.join(this_dir, 'DATA', 'TIBD_PopD_Data.csv')
 
 add_bisphosphonate_components()
-# add_denosumab_components()
+# add_RANKLi_components()
 
 solver = ScipyOdeSimulator(model, compiler='cython')
 
