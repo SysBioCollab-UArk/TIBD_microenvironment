@@ -63,7 +63,7 @@ class SequentialInjections(SimulationProtocol):
         super().__init__(solver, t_equil)
         self.time_perturb_value = {} if time_perturb_value is None else validate_time_perturb_value(time_perturb_value)
         # use a set ({}) to get unique perturb names
-        perturbs = {perturb[0] for perturbations in time_perturb_value.values() for perturb in perturbations}
+        perturbs = {perturb[0] for perturbations in self.time_perturb_value.values() for perturb in perturbations}
         # create a dictionary to store the indices of all perturbations (initials or param_values)
         self.perturb_idx = dict(zip(perturbs, [None for p in perturbs]))
         # store the species and parameter names, so don't have to keep generating these lists over and over
