@@ -235,6 +235,57 @@ class ScaleBkProtocol(object):
         return output_all
 
 
+class Canon2008Protocol(SimulationProtocol):
+    """
+    Protocol for Canon et al. (2008) OC-score constraints.
+
+    Runs three parallel simulations:
+        0: PBS
+        1: OPG-Fc 0.3 mg/kg
+        2: OPG-Fc 3.0 mg/kg
+
+    Assumes the model contains:
+        Observable('C_obs', ...)
+        Expression('OC_score', C_obs)
+
+    The protocol post-processes OC_score so it can be compared to pseudo-data rows in the calibration CSV.
+    """
+
+    def __init__(self, solver, t_equil=None, time_perturb_value=None, thresh=1):
+
+        if isinstance(time_perturb_value, dict):
+            time_perturb_value = [time_perturb_value]
+
+        if len(time_perturb_value) != 3:
+            raise ValueError(
+                "Canon2008Protocol expects exactly three protocols: PBS, OPG-Fc 0.3 mg/kg, and OPG-Fc 3.0 mg/kg.")
+
+        self.sim_protocols = [SequentialInjections(solver, t_equil, tpv) for tpv in time_perturb_value]
+        self.thresh = thresh  # threshold for OC concentration considered significantly greater than zero
+
+
+    def run(self, tspan, param_values):
+        # Run the three underlying experiments
+        # 0: PBS-Tumor Control, 1: Canon2008_B, OPG-Fc 0.3 mg/kg Preventative, 2: OPG-Fc 3.0 mg/kg Preventative
+        output = [protocol.run(tspan=tspan, param_values=param_values) for protocol in self.sim_protocols]
+
+        # OC_score_PBS = OC_PBS / OC_03
+        # OC_score_03  = np.minimum(0, OC_03 - 1.0)
+        # OC_score_30  = OC_30
+
+        # Constraint 1: OC concentration for PBS should exceed that for OPG-FC 0.3 mg/kg by a certain amount
+        output[0]['OC_score'] /= output[1]['OC_score']
+
+        # Constraint 2: OC concentration for OPG-FC 0.3 mg/kg should be significantly greater than zero
+        output[1]['OC_score'] = np.minimum(0, output[1]['OC_score'] - 1.0)
+
+        # Constraint 3: OC concentration for OPG-FC 3.0 mg/kg should be zero
+        # NO CHANGE TO 'OC_score' EXPRESSION NEEDED
+
+        # Concatenate outputs, same as ParallelExperiments
+        return np.concatenate(output)
+
+
 if __name__ == "__main__":
     from MODELS.TIBD_PopD_v1 import model
     from MODULES.perturbations import add_bisphosphonate_components
