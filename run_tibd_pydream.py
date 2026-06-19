@@ -23,11 +23,11 @@ tumor_bisphos_injection = SequentialInjections(solver, t_equil=500,
 # Experiment D
 bisphos_injection = SequentialInjections(solver, t_equil=500, time_perturb_value={6: ('Bisphos()', 1)})
 
-# Additional parameters
+# Additional PyDREAM parameters
 custom_priors = {'N': ('uniform', 0.3)}  #, 'nB': ('norm', 1), 'nC': ('norm', 1)}
 
 no_sample = ['R_0', 'B_0', 'C_0', 'f0', 'IL', 'IO', 'IP_const', 'Bone_0', 'Tumor_0', 'CC_ON', 'nB', 'nC', 'ALLEE_ON',
-             'A', 'Bisphos_0']  #, 'Denosumab_0']
+             'A', 'Bisphos_0']
 
 obs_labels = {'Bone_tot': 'bone density', 'C_obs': 'osteoclasts', 'OB_tot': 'osteoblasts', 'Tumor_tot': 'tumor cells'}
 
@@ -40,6 +40,7 @@ param_expts_map = {
 }
 
 sim_protocols = [tumor_injection] * 2 + [tumor_bisphos_injection, bisphos_injection]
+
 
 if __name__ == '__main__':
 
