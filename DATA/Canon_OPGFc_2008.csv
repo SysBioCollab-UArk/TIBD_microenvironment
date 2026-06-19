@@ -1,5 +1,5 @@
 ﻿observable,time,time_units,average,stderr,amount_units,expt_id,alt_expt_id
-OC_score,25,day,2.5213,0.270753108,Osteoclast Score,Canon2008_A,PBS-Tumor Control
+Bone_tot,0,day,100.0,5.0,relative %,Canon2008_A,PBS-Tumor Control
 Tumor_BLI,1,day,5.041,0.1215,log10(photons/s),Canon2008_A,PBS-Tumor Control
 Tumor_BLI,5,day,5.4005,0.11525,log10(photons/s),Canon2008_A,PBS-Tumor Control
 Tumor_BLI,8,day,5.861,0.1195,log10(photons/s),Canon2008_A,PBS-Tumor Control
@@ -8,27 +8,31 @@ Tumor_BLI,14,day,7.0695,0.13725,log10(photons/s),Canon2008_A,PBS-Tumor Control
 Tumor_BLI,18,day,7.716,0.1195,log10(photons/s),Canon2008_A,PBS-Tumor Control
 Tumor_BLI,22,day,8.264,0.171,log10(photons/s),Canon2008_A,PBS-Tumor Control
 Tumor_BLI,25,day,9.0155,0.16875,log10(photons/s),Canon2008_A,PBS-Tumor Control
-OC_score,25,day,1.652222222,0.42954038,Osteoclast Score,Canon2008_B,OPG-Fc 0.3 mg/kg Preventative
-OC_score,25,day,0,0.1,Osteoclast Score,Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,1,day,4.999,0.1175,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,5,day,5.11,0.092,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,8,day,5.456,0.176,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,11,day,5.424,0.2645,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,14,day,6.348,0.2515,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,18,day,6.988,0.2055,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,22,day,7.553,0.2435,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,25,day,7.89,0.2095,log10(photons/s),Canon2008_C,OPG-Fc 3.0 mg/kg Preventative
-Tumor_BLI,5,day,5.071,0.1475,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,8,day,5.612,0.1425,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,11,day,6.082,0.1375,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,14,day,6.949,0.1885,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,18,day,7.327,0.1785,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,22,day,7.573,0.311,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,25,day,8.47,0.163,log10(photons/sec),Canon2008_D,OPG-Fc 0.3 mg/kg Therapeutic
-Tumor_BLI,5,day,5.55,0.102,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
-Tumor_BLI,8,day,5.684,0.1375,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
-Tumor_BLI,11,day,6.347,0.163,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
-Tumor_BLI,14,day,6.613,0.2395,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
-Tumor_BLI,18,day,7.235,0.1885,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
-Tumor_BLI,22,day,7.746,0.1835,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
-Tumor_BLI,25,day,8.531,0.214,log10(photons/sec),Canon2008_E,OPG-Fc 3.0 mg/kg Therapeutic
+Bone_tot,0,day,100.0,5.0,relative %,Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,1,day,4.999,0.1175,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,5,day,5.11,0.092,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,8,day,5.456,0.176,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,11,day,5.424,0.2645,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,14,day,6.348,0.2515,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,18,day,6.988,0.2055,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,22,day,7.553,0.2435,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Tumor_BLI,25,day,7.89,0.2095,log10(photons/s),Canon2008_B,OPG-Fc 3.0 mg/kg Preventative
+Bone_tot,0,day,100.0,5.0,relative %,Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,5,day,5.071,0.1475,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,8,day,5.612,0.1425,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,11,day,6.082,0.1375,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,14,day,6.949,0.1885,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,18,day,7.327,0.1785,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,22,day,7.573,0.311,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Tumor_BLI,25,day,8.47,0.163,log10(photons/sec),Canon2008_C,OPG-Fc 0.3 mg/kg Therapeutic
+Bone_tot,0,day,100.0,5.0,relative %,Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,5,day,5.55,0.102,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,8,day,5.684,0.1375,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,11,day,6.347,0.163,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,14,day,6.613,0.2395,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,18,day,7.235,0.1885,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,22,day,7.746,0.1835,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+Tumor_BLI,25,day,8.531,0.214,log10(photons/sec),Canon2008_D,OPG-Fc 3.0 mg/kg Therapeutic
+OC_score,25,day,1.526,0.464,unitless,Canon2008_OCScore,PBS-Tumor Control
+OC_score,25,day,0,0.1,rel. conc.,Canon2008_OCScore,OPG-Fc 0.3 mg/kg Preventative
+OC_score,25,day,0,0.1,fM,Canon2008_OCScore,OPG-Fc 3.0 mg/kg Preventative
