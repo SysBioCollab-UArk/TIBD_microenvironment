@@ -428,11 +428,13 @@ def plot_tc_from_simdata(basepath, directories, run_pydream_filename, tc_ids, pl
 
         # loop over observables
         for obs in sim_data['observable'].unique():
-            plt.figure(constrained_layout=True, figsize=figsize)
             x_units = None
             y_units = None
             # loop over timecourse IDs
             for tc_id in tc_ids:
+                if obs not in expt_data[expt_data['expt_id'] == tc_id]['observable'].unique():
+                    continue
+                plt.figure(obs, constrained_layout=True, figsize=figsize)
 
                 # get time units for the x-axis
                 time_units = expt_data.loc[
