@@ -226,16 +226,18 @@ class ParameterCalibration(object):
             history_thin=1, gamma_levels=4, multitry=False, timeout=5, obs_labels=None, plot_results=True,
             plot_ll_args=None, plot_pd_args=None, plot_tc_args=None):
 
+        from pydream_util import load_pydream_restart_state, Gelman_Rubin_from_files
+
         if not restart:
             total_iterations = 0
-            all_samples = None
         else:
             filepath = '.' if restart is True else restart
-            _, all_samples = load_logps_and_param_samples(filepath)
-            total_iterations = all_samples.shape[1]
+            total_iterations, restart_start = load_pydream_restart_state(
+                filepath, nchains=nchains
+            )
             if start is None:
                 print('Restarting from end of previous PyDREAM run')
-                start = [all_samples[chain][-1, :] for chain in range(all_samples.shape[0])]
+                start = restart_start
 
         converged = False
         while not converged:
@@ -258,10 +260,9 @@ class ParameterCalibration(object):
                 np.save('dreamzs_%dchain_sampled_params_chain_%d_%d' % (nchains, chain, total_iterations),
                         sampled_params[chain])
                 np.save('dreamzs_%dchain_logps_chain_%d_%d' % (nchains, chain, total_iterations), log_ps[chain])
-            all_samples = sampled_params if all_samples is None else \
-                [np.concatenate((all_samples[chain], sampled_params[chain])) for chain in range(nchains)]
-            # Check for convergence
-            GR = Gelman_Rubin(all_samples, fburnin=0.5)
+            # Check for convergence directly from the saved sample files so
+            # the complete MCMC trajectory is not retained in memory.
+            GR = Gelman_Rubin_from_files('.', fburnin=0.5, nchains=nchains)
             print('At iteration: ', total_iterations, ' GR = ', GR)
             np.savetxt('dreamzs_%dchain_GelmanRubin_iteration_%d.txt' % (nchains, total_iterations), GR)
             if np.all(GR < 1.2):

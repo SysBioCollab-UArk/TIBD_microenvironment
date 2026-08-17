@@ -875,6 +875,247 @@ def load_logps_and_param_samples(dirpath):
     return np.array(log_ps_chain), np.array(samples_chain)
 
 
+def _get_pydream_sample_files(dirpath, nchains=None):
+    "Return complete PyDREAM sampled-parameter files grouped by chain."
+    if nchains is None:
+        sample_pattern = 'dreamzs*sampled_params_chain_*_*.npy'
+    else:
+        sample_pattern = (
+            'dreamzs_%dchain_sampled_params_chain_*_*.npy' % nchains
+        )
+
+    samples_files = glob.glob(os.path.join(dirpath, sample_pattern))
+    if not samples_files:
+        raise ValueError(
+            "No PyDREAM sampled parameter files found in '%s'" % dirpath
+        )
+
+    files_by_chain = {}
+    for filename in samples_files:
+        match = re.search(r'chain_(\d+)_(\d+)\.npy$', filename)
+        if match is None:
+            continue
+
+        chain = int(match.group(1))
+        iteration = int(match.group(2))
+        chain_files = files_by_chain.setdefault(chain, {})
+
+        if iteration in chain_files:
+            raise ValueError(
+                "Multiple sampled parameter files found for chain %d "
+                "at iteration %d" % (chain, iteration)
+            )
+
+        chain_files[iteration] = filename
+
+    chains = sorted(files_by_chain)
+    if not chains:
+        raise ValueError(
+            "No valid PyDREAM sampled parameter files found in '%s'" % dirpath
+        )
+
+    if nchains is not None:
+        expected_chains = list(range(nchains))
+        if chains != expected_chains:
+            raise ValueError(
+                "Expected sampled parameter files for chains %s, "
+                "found chains %s" % (expected_chains, chains)
+            )
+
+    common_iterations = set(files_by_chain[chains[0]])
+    for chain in chains[1:]:
+        common_iterations.intersection_update(files_by_chain[chain])
+
+    if not common_iterations:
+        raise ValueError(
+            "No common sampled-parameter iteration checkpoint found "
+            "across chains"
+        )
+
+    latest_common_iteration = max(common_iterations)
+
+    # Require every chain to contain the same complete checkpoint sequence
+    # through the latest checkpoint common to all chains. Later files from
+    # only some chains are ignored because they can be left by an interrupted
+    # run, but a missing intermediate checkpoint is treated as an error.
+    iterations = sorted(
+        iteration for iteration in files_by_chain[chains[0]]
+        if iteration <= latest_common_iteration
+    )
+
+    for chain in chains[1:]:
+        chain_iterations = sorted(
+            iteration for iteration in files_by_chain[chain]
+            if iteration <= latest_common_iteration
+        )
+        if chain_iterations != iterations:
+            raise ValueError(
+                "Sampled parameter checkpoints are not consistent across "
+                "chains through iteration %d" % latest_common_iteration
+            )
+
+    complete_files = {
+        chain: [files_by_chain[chain][iteration] for iteration in iterations]
+        for chain in chains
+    }
+
+    return chains, iterations, complete_files
+
+
+def load_pydream_restart_state(dirpath, nchains=None):
+    "Load only the iteration count and final point needed to restart PyDREAM."
+    chains, iterations, files_by_chain = _get_pydream_sample_files(
+        dirpath, nchains=nchains
+    )
+    latest_iteration = iterations[-1]
+
+    start = []
+    nparams = None
+
+    for chain in chains:
+        samples = np.load(files_by_chain[chain][-1], mmap_mode='r')
+
+        if samples.ndim != 2 or samples.shape[0] == 0:
+            raise ValueError(
+                "Invalid sampled parameter array in '%s'" %
+                files_by_chain[chain][-1]
+            )
+
+        if nparams is None:
+            nparams = samples.shape[1]
+        elif samples.shape[1] != nparams:
+            raise ValueError(
+                "Sampled parameter dimensions are not consistent across chains"
+            )
+
+        start.append(np.array(samples[-1, :], copy=True))
+        del samples
+
+    return latest_iteration, start
+
+
+def _combine_population_stats(n_a, mean_a, m2_a, n_b, mean_b, var_b):
+    "Combine population mean/variance statistics from two sample blocks."
+    if n_a == 0:
+        return n_b, mean_b.copy(), var_b * n_b
+
+    n_total = n_a + n_b
+    delta = mean_b - mean_a
+    mean_total = mean_a + delta * (float(n_b) / n_total)
+    m2_total = (
+        m2_a
+        + (var_b * n_b)
+        + (delta ** 2) * n_a * n_b / n_total
+    )
+
+    return n_total, mean_total, m2_total
+
+
+def Gelman_Rubin_from_files(dirpath, fburnin=0.5, nchains=None):
+    "Calculate PyDREAM Gelman-Rubin statistics from saved sample files."
+    if not 0 <= fburnin < 1:
+        raise ValueError("fburnin must satisfy 0 <= fburnin < 1")
+
+    chains, _, files_by_chain = _get_pydream_sample_files(
+        dirpath, nchains=nchains
+    )
+
+    nsamples_by_chain = []
+    nparams = None
+
+    for chain in chains:
+        nsamples = 0
+
+        for filename in files_by_chain[chain]:
+            samples = np.load(filename, mmap_mode='r')
+
+            if samples.ndim != 2:
+                raise ValueError(
+                    "Invalid sampled parameter array in '%s'" % filename
+                )
+
+            if nparams is None:
+                nparams = samples.shape[1]
+            elif samples.shape[1] != nparams:
+                raise ValueError(
+                    "Sampled parameter dimensions are not consistent "
+                    "across files"
+                )
+
+            nsamples += samples.shape[0]
+            del samples
+
+        nsamples_by_chain.append(nsamples)
+
+    if len(set(nsamples_by_chain)) != 1:
+        raise ValueError(
+            "Number of sampled parameter values is not equal across chains"
+        )
+
+    nsamples = nsamples_by_chain[0]
+    nburnin = int(math.floor(nsamples * fburnin))
+    nkeep = nsamples - nburnin
+
+    if nkeep <= 0:
+        raise ValueError("No samples remain after burn-in")
+
+    chain_means = []
+    chain_vars = []
+
+    for chain in chains:
+        n_seen = 0
+        n_kept = 0
+        mean = np.zeros(nparams, dtype=float)
+        m2 = np.zeros(nparams, dtype=float)
+
+        for filename in files_by_chain[chain]:
+            samples = np.load(filename, mmap_mode='r')
+            file_start = n_seen
+            file_end = n_seen + samples.shape[0]
+
+            if file_end > nburnin:
+                local_start = max(0, nburnin - file_start)
+                block = samples[local_start:, :]
+                block_n = block.shape[0]
+
+                if block_n:
+                    block_mean = np.mean(
+                        block, axis=0, dtype=np.float64
+                    )
+                    block_var = np.var(
+                        block, axis=0, dtype=np.float64
+                    )
+
+                    n_kept, mean, m2 = _combine_population_stats(
+                        n_kept,
+                        mean,
+                        m2,
+                        block_n,
+                        block_mean,
+                        block_var,
+                    )
+
+                    del block_mean, block_var, block
+
+            n_seen = file_end
+            del samples
+
+        if n_kept != nkeep:
+            raise ValueError(
+                "Unexpected number of post-burn-in samples for chain %d: "
+                "expected %d, found %d" % (chain, nkeep, n_kept)
+            )
+
+        chain_means.append(mean)
+        chain_vars.append(m2 / n_kept)
+
+    W = np.mean(chain_vars, axis=0)
+    B = np.var(chain_means, axis=0)
+    var_est = W * (1 - (1. / nkeep)) + B
+
+    return np.sqrt(np.divide(var_est, W))
+
+
 def iter_simulation_outputs_resilient(sample_args, run_fn, run_with_timeout_fn, timeout_seconds=None, n_procs=1):
 
     batch_size = n_procs if n_procs > 1 else 1
