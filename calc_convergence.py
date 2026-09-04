@@ -6,8 +6,9 @@ import os
 import itertools
 
 # path = '../earm/xpdata/forfits/PyDREAM_RESULTS/RUN_1'
-path = '../AorticCalcification/SAVE/Messika'
+# path = '../AorticCalcification/SAVE/Messika'
 # path = '/Users/leonardharris/PycharmProjects/Mitochondrial_Complex_II/SAVED/TEMP'
+path = 'MODELS/SAVE/Leonard/Bennett2024_Johnson2011_stderr_2abs'
 
 logps_files = glob.glob(os.path.join(path, 'dreamzs*logps*'))
 sample_files = glob.glob(os.path.join(path, 'dreamzs*params*'))
