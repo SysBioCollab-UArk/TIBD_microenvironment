@@ -436,7 +436,8 @@ class ParameterCalibration(object):
         chains = np.unique(chains)
         iterations = np.unique(iterations)
 
-        # read the likelihoods from the files
+        # Read the saved log posterior densities from the files. In PyDREAM, each saved log_ps value is log likelihood +
+        # log prior.
         log_ps = []
         for chain in chains:
             log_ps.append(np.concatenate(tuple(np.load(
@@ -471,7 +472,7 @@ class ParameterCalibration(object):
         if ticks_fs is not None:
             plt.gca().get_xaxis().get_offset_text().set_fontsize(0.75 * ticks_fs)
         plt.xlabel('iteration', fontsize=labels_fs)
-        plt.ylabel('log-likelihood', fontsize=labels_fs)
+        plt.ylabel('log posterior density', fontsize=labels_fs)
         plt.tick_params(axis='both', labelsize=ticks_fs)
         plt.legend(loc=0, fontsize=legend_fs, ncols=leg_ncols)
 
@@ -518,7 +519,7 @@ class ParameterCalibration(object):
                            key=lambda f: int(re.search(r'(\d+).npy$', f).group(1)))
             samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
 
-        # read in log-likelihoods from files
+        # Read in saved log posterior densities (log likelihood + log prior).
         log_ps_chain = []
         for chain in chains:
             # get files and sort them numerically by number of iterations (using key=lambda function)
@@ -529,17 +530,21 @@ class ParameterCalibration(object):
             log_ps_chain[-1][np.isinf(log_ps_chain[-1])] = np.nan
         log_ps = np.concatenate(tuple(log_ps_chain[chain][burnin:] for chain in range(len(chains))))
 
-        # if a likelihood cutoff is defined, remove samples that fall below the cutoff
+        # Remove burn-in from every chain and, if a log-posterior-density cutoff is defined, remove samples that fall
+        # below the cutoff.
         if cutoff is not None:
             log_ps_mean = np.nanmean(log_ps)
             log_ps_sdev = np.nanstd(log_ps)
-            # get indices for samples with log-likelihood > cutoff
-            for chain in range(len(chains)):
+        for chain in range(len(chains)):
+            if cutoff is not None:
+                # Get indices for samples with log posterior density > cutoff.
                 keep_idxs = [i for i in range(burnin, len(samples_chain[chain]))
                              if log_ps_chain[chain][i] > log_ps_mean - cutoff * log_ps_sdev]
-                samples_chain[chain] = samples_chain[chain][keep_idxs]
-                log_ps_chain[chain] = log_ps_chain[chain][keep_idxs]
-            log_ps = np.concatenate(tuple(log_ps_chain[chain] for chain in range(len(chains))))
+            else:
+                keep_idxs = range(burnin, len(samples_chain[chain]))
+            samples_chain[chain] = samples_chain[chain][keep_idxs]
+            log_ps_chain[chain] = log_ps_chain[chain][keep_idxs]
+        log_ps = np.concatenate(tuple(log_ps_chain[chain] for chain in range(len(chains))))
 
         # combine all samples together
         samples = np.concatenate(tuple(samples_chain[chain] for chain in range(len(chains))))
@@ -657,7 +662,7 @@ class ParameterCalibration(object):
         if show_plot:
             plt.show()
 
-        return samples, log_ps  # these samples have been trimmed based on log-likelihood values
+        return samples, log_ps  # trimmed based on saved log posterior values
 
 
     @staticmethod

@@ -11,6 +11,7 @@ import glob
 import pysb
 from collections.abc import Iterable
 import re
+import csv
 import multiprocessing
 
 
@@ -873,6 +874,236 @@ def load_logps_and_param_samples(dirpath):
         samples_chain.append(np.concatenate(tuple(np.load(file) for file in files)))
 
     return np.array(log_ps_chain), np.array(samples_chain)
+
+
+def calculate_pydream_population_ess(dirpath, fburnin=0.5, cutoff=2.0, batch_size=None, min_batches=20, max_iter=None):
+    """Estimate an autocorrelation-adjusted ESS for each PyDREAM parameter.
+
+    The saved PyDREAM chains are treated as an interacting population. After removing burn-in independently from every
+    chain, this function calculates the across-chain mean at each saved iteration index and estimates its long-run
+    variance by non-overlapping batch means. For parameter ``p``, the resulting first-order population ESS is
+
+        ESS_p = T * s_p**2 / Omega_p,
+
+    where ``T`` is the number of retained iteration indices per chain, ``s_p**2`` is the marginal variance across all
+    post-burn-in chain samples, and ``Omega_p`` is the estimated long-run variance of the across-chain mean series.
+
+    If ``cutoff`` is not None, the function then applies the same log-posterior-density threshold used by
+    ``ParameterCalibration`` and approximates the ESS of the filtered ensemble by multiplying the post-burn-in ESS by
+    the fraction of parameter vectors retained. This last step assumes that the sampling efficiency is approximately
+    unchanged by the filter and is intended as a descriptive correction for the self-distance calculation, not as a
+    formal MCMC diagnostic.
+
+    Parameters
+    ----------
+    dirpath : str or path-like
+        Directory containing the saved ``sampled_params`` and ``logps`` files.
+    fburnin : float, optional
+        Fraction removed independently from the beginning of every chain.
+    cutoff : float or None, optional
+        Retain post-burn-in samples whose saved log posterior is greater than ``mean - cutoff * standard_deviation``.
+        Use None for no filtering.
+    batch_size : int or None, optional
+        Number of saved iteration indices per non-overlapping batch. The default is floor(sqrt(T)).
+    min_batches : int, optional
+        Warn if fewer than this many complete batches are available.
+    max_iter : int or None, optional
+        Use samples only through the latest saved checkpoint whose cumulative
+        iteration number is less than or equal to ``max_iter``. This matches
+        the checkpoint-selection behavior of ``plot_pydream_output``.
+
+    Returns
+    -------
+    dict
+        Scalar run metadata and one-dimensional arrays of length ``P`` for ``marginal_variance``, ``long_run_variance``,
+        ``ess_postburn``, ``sampling_efficiency``, and ``ess_retained``.
+    """
+    if not 0 <= fburnin < 1:
+        raise ValueError("fburnin must satisfy 0 <= fburnin < 1")
+    if cutoff is not None and cutoff < 0:
+        raise ValueError("cutoff must be nonnegative or None")
+    if min_batches < 2:
+        raise ValueError("min_batches must be at least 2")
+
+    log_ps_chain, samples_chain = load_logps_and_param_samples(dirpath)
+
+    selected_checkpoint = samples_chain.shape[1]
+    if max_iter is not None:
+        if not isinstance(max_iter, (int, np.integer)) or max_iter < 1:
+            raise ValueError("max_iter must be a positive integer or None")
+        sample_files = glob.glob(os.path.join(dirpath, 'dreamzs*sampled_params_chain_*_*.npy'))
+        checkpoints = []
+        for filename in sample_files:
+            match = re.search(r'chain_\d+_(\d+)\.npy$', filename)
+            if match is not None and int(match.group(1)) <= max_iter:
+                checkpoints.append(int(match.group(1)))
+        if not checkpoints:
+            raise ValueError("No saved PyDREAM checkpoint is less than or equal to max_iter=%d" % max_iter)
+        selected_checkpoint = max(checkpoints)
+        if selected_checkpoint > samples_chain.shape[1]:
+            raise ValueError("Saved checkpoint %d exceeds the %d samples loaded per chain" %
+                             (selected_checkpoint, samples_chain.shape[1]))
+        samples_chain = samples_chain[:, :selected_checkpoint, :]
+        log_ps_chain = log_ps_chain[:, :selected_checkpoint]
+
+    if samples_chain.ndim != 3:
+        raise ValueError("Expected sampled parameters with shape (chains, iterations, parameters); found %s" %
+                         samples_chain.shape)
+    if log_ps_chain.ndim != 2:
+        raise ValueError("Expected log posterior values with shape (chains, iterations); found %s" % log_ps_chain.shape)
+    if log_ps_chain.shape != samples_chain.shape[:2]:
+        raise ValueError("Saved log posterior and sampled-parameter arrays do not have matching chain and iteration "
+                         "dimensions")
+
+    n_chains, n_iterations, n_parameters = samples_chain.shape
+    n_burnin = int(math.floor(fburnin * n_iterations))
+    post_samples = samples_chain[:, n_burnin:, :]
+    post_log_ps = log_ps_chain[:, n_burnin:]
+    n_iterations_postburn = post_samples.shape[1]
+
+    if n_iterations_postburn < 2:
+        raise ValueError("At least two saved iterations must remain after burn-in")
+
+    n_raw = n_chains * n_iterations_postburn
+    population_mean = np.mean(post_samples, axis=0, dtype=np.float64)
+    marginal_variance = np.var(post_samples, axis=(0, 1), ddof=1, dtype=np.float64)
+
+    if batch_size is None:
+        batch_size = int(math.floor(math.sqrt(n_iterations_postburn)))
+    if not isinstance(batch_size, (int, np.integer)) or batch_size < 1:
+        raise ValueError("batch_size must be a positive integer")
+
+    n_batches = n_iterations_postburn // batch_size
+    if n_batches < 2:
+        raise ValueError("batch_size=%d leaves fewer than two complete batches" % batch_size)
+    if n_batches < min_batches:
+        warnings.warn("Only %d complete batches are available; the population ESS estimate may be unstable" % n_batches,
+                      RuntimeWarning)
+
+    n_batched_iterations = n_batches * batch_size
+    batch_means = population_mean[:n_batched_iterations].reshape(n_batches, batch_size, n_parameters).mean(axis=1)
+    long_run_variance = batch_size * np.var(batch_means, axis=0, ddof=1, dtype=np.float64)
+
+    if np.any(marginal_variance <= 0):
+        bad = np.flatnonzero(marginal_variance <= 0)
+        raise ValueError("Cannot calculate ESS for zero-variance parameter columns: %s" % bad.tolist())
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ess_postburn = (n_iterations_postburn * marginal_variance / long_run_variance)
+
+    # A zero batch-means variance implies an estimate above the available raw sample count; cap it at that count, as for
+    # all finite estimates.
+    ess_postburn = np.where(np.isfinite(ess_postburn), ess_postburn, float(n_raw))
+    ess_postburn = np.clip(ess_postburn, 1.0, float(n_raw))
+
+    posterior_cutoff_value = None
+    if cutoff is None:
+        n_retained = n_raw
+    else:
+        finite_log_ps = np.isfinite(post_log_ps)
+        finite_values = post_log_ps[finite_log_ps]
+        if finite_values.size == 0:
+            raise ValueError("No finite post-burn-in log posterior values found")
+        posterior_cutoff_value = (np.mean(finite_values) - cutoff * np.std(finite_values))
+        keep_mask = finite_log_ps & (post_log_ps > posterior_cutoff_value)
+        n_retained = int(np.count_nonzero(keep_mask))
+        if n_retained == 0:
+            raise ValueError("The log-posterior-density filter retained no samples")
+
+    retained_fraction = n_retained / float(n_raw)
+    sampling_efficiency = ess_postburn / float(n_raw)
+    ess_retained = ess_postburn * retained_fraction
+    ess_retained = np.clip(ess_retained, 1.0, float(n_retained))
+
+    return {
+        'n_chains': n_chains,
+        'n_parameters': n_parameters,
+        'n_iterations_per_chain': n_iterations,
+        'selected_checkpoint': selected_checkpoint,
+        'max_iter_requested': max_iter,
+        'n_burnin_per_chain': n_burnin,
+        'n_iterations_postburn_per_chain': n_iterations_postburn,
+        'n_raw_postburn': n_raw,
+        'n_retained': n_retained,
+        'retained_fraction': retained_fraction,
+        'posterior_cutoff': cutoff,
+        'posterior_cutoff_value': posterior_cutoff_value,
+        'batch_size': batch_size,
+        'n_batches': n_batches,
+        'n_batched_iterations': n_batched_iterations,
+        'marginal_variance': marginal_variance,
+        'long_run_variance': long_run_variance,
+        'ess_postburn': ess_postburn,
+        'sampling_efficiency': sampling_efficiency,
+        'ess_retained': ess_retained,
+    }
+
+
+def save_self_distance_comparison(dirpath, param_labels, hist_labels, raw_sample_counts, effective_sample_sizes,
+                                  self_distances_ess, max_iter=None, filename=None):
+    """Save raw-count and ESS-adjusted self-distance comparisons to a text file."""
+
+    param_labels = list(param_labels)
+    hist_labels = tuple(hist_labels)
+    raw_sample_counts = np.asarray(raw_sample_counts, dtype=float)
+    effective_sample_sizes = np.asarray(effective_sample_sizes, dtype=float)
+    self_distances_ess = np.asarray(self_distances_ess, dtype=float)
+
+    n_parameters = len(param_labels)
+    expected_shape = (2, n_parameters)
+
+    if len(hist_labels) != 2:
+        raise ValueError("'hist_labels' must contain exactly two labels")
+
+    if raw_sample_counts.shape != (2,):
+        raise ValueError("'raw_sample_counts' must have shape (2,); found %s" % raw_sample_counts.shape)
+
+    if effective_sample_sizes.shape != expected_shape:
+        raise ValueError("'effective_sample_sizes' must have shape %s; found %s" %
+                         (expected_shape, effective_sample_sizes.shape))
+
+    if self_distances_ess.shape != expected_shape:
+        raise ValueError("'self_distances_ess' must have shape %s; found %s" %
+                         (expected_shape, self_distances_ess.shape))
+
+    if np.any(raw_sample_counts <= 0):
+        raise ValueError("All raw sample counts must be positive")
+
+    if np.any(effective_sample_sizes <= 0):
+        raise ValueError("All effective sample sizes must be positive")
+
+    self_distances_raw = self_distances_ess * np.sqrt(effective_sample_sizes / raw_sample_counts[:, np.newaxis])
+
+    if filename is None:
+        iteration_label = 'all' if max_iter is None else str(max_iter)
+        first_group = str(hist_labels[0]).replace(' ', '_')
+        second_group = str(hist_labels[1]).replace(' ', '_')
+        filename = 'PyDREAM_self_distance_comparison_%s_%s_%s.csv' % (first_group, second_group, iteration_label)
+
+    output_filepath = os.path.join(dirpath, filename)
+
+    with open(output_filepath, 'w', encoding='utf-8', newline='') as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerow(['parameter', 'group', 'retained_raw_n', 'adjusted_ess', 'ess_raw_ratio',
+                             'self_distance_raw', 'self_distance_ess', 'displayed_criterion'])
+
+        for parameter_idx, parameter_label in enumerate(param_labels):
+            displayed_criterion = np.max(self_distances_ess[:, parameter_idx])
+
+            for distribution_idx in range(2):
+                raw_count = int(raw_sample_counts[distribution_idx])
+                adjusted_ess = effective_sample_sizes[distribution_idx, parameter_idx]
+                efficiency = adjusted_ess / raw_count
+                csv_writer.writerow([parameter_label, hist_labels[distribution_idx], raw_count, '%.1f' % adjusted_ess,
+                                     '%.6f' % efficiency, '%.6f' % self_distances_raw[distribution_idx, parameter_idx],
+                                     '%.6f' % self_distances_ess[distribution_idx, parameter_idx],
+                                     '%.6f' % displayed_criterion])
+
+    print('Saving...')
+    print('    %s' % filename)
+    print('...to %s' % os.path.abspath(dirpath))
+
+    return output_filepath
 
 
 def _get_pydream_sample_files(dirpath, nchains=None):

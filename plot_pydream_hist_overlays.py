@@ -1,5 +1,6 @@
 from param_calibration import *
 import numpy as np
+import pandas as pd
 from scipy import stats
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -11,7 +12,7 @@ import importlib.util
 from pathlib import Path
 import math
 import sys
-from pydream_util import get_fig_ncols
+from pydream_util import get_fig_ncols, calculate_pydream_population_ess
 
 
 def calc_self_distance(kde, n_samples, x_min, x_max, num_x_pts):
@@ -108,8 +109,8 @@ def align_groups_by_common_labels(groups, group_labels):
     return new_groups, new_group_labels
 
 
-def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, show_plots=False, save_plots=True,
-                       **kwargs):
+def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, effective_sample_sizes=None,
+                       show_plots=False, save_plots=True, **kwargs):
 
     # error check
     if not (len(two_samples) == len(hist_labels) == 2):
@@ -140,6 +141,16 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
 
     ### Plot histogram distances with self distances ###
     n_params = len(param_labels)
+    if effective_sample_sizes is None:
+        effective_sample_sizes = np.array([[len(samples)] * n_params for samples in two_samples], dtype=float)
+    else:
+        effective_sample_sizes = np.asarray(effective_sample_sizes, dtype=float)
+        if effective_sample_sizes.shape != (2, n_params):
+            raise ValueError("'effective_sample_sizes' must have shape (2, %d); found %s" %
+                             (n_params, effective_sample_sizes.shape))
+        if np.any(~np.isfinite(effective_sample_sizes)) or np.any(effective_sample_sizes <= 0):
+            raise ValueError("All effective sample sizes must be finite and positive")
+
     ncols = get_fig_ncols(n_params)
     nrows = math.ceil(n_params / ncols)
     labelsize = 10 * max(1, (2 / 5 * np.ceil(nrows / 2)))
@@ -152,6 +163,9 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     D = []  # histogram distances
     if E_Dself is None:
         E_Dself = [[None] * n_params for _ in range(2)]
+    elif np.asarray(E_Dself, dtype=object).shape != (2, n_params):
+        raise ValueError("E_Dself must have shape (2, %d)" % n_params)
+    self_distance_criterion = []
     print('Plotting %d histogram overlays' % n_params)
     for n in range(n_params):
         print(n, end='\n' if (n + 1) % 20 == 0 or n == n_params - 1 else ' ')
@@ -167,21 +181,22 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
             # get kernel density estimate (KDE) for calculating histogram distance and self distance
             kde = stats.gaussian_kde(samples[:, n])
             kde.set_bandwidth(kde.factor * bw_adjust[i])
+            if E_Dself[i][n] is None:
+                E_Dself[i][n] = calc_self_distance(kde, effective_sample_sizes[i, n], x_vals[0], x_vals[-1], 1000)
             if i == 0:  # reference histogram
                 # calculate self distance (expected value)
                 kde_ref = kde
                 x_min_ref = x_vals[0]
                 x_max_ref = x_vals[-1]
-                if E_Dself[0][n] is None:
-                    E_Dself[0][n] = calc_self_distance(kde_ref, len(samples[:, n]), x_min_ref, x_max_ref, 1000)
             else:
                 # calculate histogram distance relative to the reference (use 2x the points, just to be safe)
                 D.append(calc_hist_distance(kde, kde_ref, min(x_vals[0], x_min_ref), max(x_vals[-1], x_max_ref),
                                             2000))
+        self_distance_criterion.append(max(E_Dself[0][n], E_Dself[1][n]))
         empty_handle = Line2D([], [], linestyle="none")
         legend = ax.legend([empty_handle, empty_handle],
                            [r'$D$: %.3f' % D[-1],
-                            r'$\mathrm{E}\left[D^\mathrm{self}\right]$: %.3f' % E_Dself[0][n]],
+                            r'$\mathrm{E}\left[D^\mathrm{self}\right]$: %.3f' % self_distance_criterion[-1]],
                             # r'$\left\langle D^\mathrm{self} \right\rangle$: %.3f' % E_Dself[0][n]],
                            fontsize=0.9 * labelsize if legend_fs is None else legend_fs,
                            loc=legend_loc, handlelength=0, handletextpad=0, labelspacing=0.3, borderpad=0)
@@ -235,7 +250,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     # Create the barplot
     fig_barplot = plt.figure(constrained_layout=True, figsize=(fig_width, fig_width / 6.4 * 4.8 * 0.75))
     plt.bar(np.arange(len(sorted_idxs)), [D[i] for i in sorted_idxs])
-    for i, e in enumerate([E_Dself[0][j] for j in sorted_idxs]):
+    for i, e in enumerate([self_distance_criterion[j] for j in sorted_idxs]):
         plt.plot([i - 0.4, i + 0.4], [e, e], color='r', lw=2)
     plt.xlabel('Index', fontsize=barplot_labels_fs)
     plt.ylabel('Histogram Distance', fontsize=barplot_labels_fs)
@@ -297,7 +312,8 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, sho
     if show_plots:
         plt.show()
 
-    # return figures and E_Dself
+    # Return both per-distribution self-distances. The comparison criterion displayed above is the larger (more
+    # conservative) value for each pair.
     return fig_overlay, fig_barplot, E_Dself
 
 
@@ -307,12 +323,22 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
     if save_plots is not False:
         outdir = '.' if save_plots is True else save_plots
 
-    directories = np.array(directories)
+    directories = np.atleast_1d(np.asarray(directories))
+    if directories.ndim != 1:
+        raise ValueError("directories must be a one-dimensional sequence")
+    if len(directories) < 2:
+        raise ValueError("plot_hist_overlays_from_dirs compares parameter distributions from at least two independent "
+                         "PyDREAM result directories. To compare experiment-specific parameter groups within one joint "
+                         "PyDREAM run, call plot_hist_overlays directly.")
 
     # process kwargs
     bw_adjust = kwargs.get('bw_adjust', [1] * len(directories))  # default smoothing parameter
+    posterior_cutoff = kwargs.get('posterior_cutoff', 2)
+    ess_batch_size = kwargs.get('ess_batch_size', None)
+    ess_min_batches = kwargs.get('ess_min_batches', 20)
 
     samples_ALL = []
+    ess_ALL = []
     groups_ALL = []
     group_labels_ALL = []
     for i, directory in enumerate(directories):
@@ -354,11 +380,42 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
 
         _, (samples, _, groups, group_labels), _ = \
             calibrator.create_figures(logps_files, samples_files, obs_labels=None, show_plots=True,
-                                      plot_ll_args={'cutoff': 2, 'file_suffix': directory},
+                                      plot_ll_args={'cutoff': posterior_cutoff, 'file_suffix': directory},
                                       plot_pd_args={'sharex': 'none', 'bw_adjust': bw_adjust[i]},
                                       which_plots=2)
 
+        ess_result = calculate_pydream_population_ess(path, fburnin=0.5, cutoff=posterior_cutoff,
+                                                      batch_size=ess_batch_size, min_batches=ess_min_batches)
+        if ess_result['n_retained'] != len(samples):
+            raise ValueError("ESS calculation retained %d samples for '%s', but the histogram workflow retained %d. "
+                             "Check that both use the same burn-in and log-posterior-density cutoff." %
+                             (ess_result['n_retained'], directory, len(samples)))
+
+        print("Population ESS for '%s': raw post-burn-in n=%d, retained n=%d (%.2f%%), adjusted ESS range %.1f-%.1f" %
+              (directory, ess_result['n_raw_postburn'], ess_result['n_retained'], 100 * ess_result['retained_fraction'],
+               np.min(ess_result['ess_retained']), np.max(ess_result['ess_retained'])))
+
+        if save_plots is not False:
+            parameter_labels = ["parameter_%d" % j for j in range(ess_result['n_parameters'])]
+            for group, labels in zip(groups, group_labels):
+                for parameter_idx, label in zip(group, labels):
+                    parameter_labels[parameter_idx] = label
+            ess_table = pd.DataFrame({
+                'parameter_index': np.arange(ess_result['n_parameters']),
+                'parameter_label': parameter_labels,
+                'raw_postburn_samples': ess_result['n_raw_postburn'],
+                'retained_samples': ess_result['n_retained'],
+                'retained_fraction': ess_result['retained_fraction'],
+                'batch_size': ess_result['batch_size'],
+                'n_batches': ess_result['n_batches'],
+                'ess_postburn': ess_result['ess_postburn'],
+                'sampling_efficiency': ess_result['sampling_efficiency'],
+                'ess_retained': ess_result['ess_retained'],
+            })
+            ess_table.to_csv(os.path.join(outdir, 'PyDREAM_population_ESS_%s.csv' % directory), index=False)
+
         samples_ALL.append(samples)
+        ess_ALL.append(ess_result['ess_retained'])
         groups_ALL.append(groups)
         group_labels_ALL.append(group_labels)
 
@@ -385,14 +442,13 @@ def plot_hist_overlays_from_dirs(dirpath, directories, run_pydream_filename, sho
             if param_labels0 != param_labels1:
                 raise Exception('Parameter labels for both distributions do not match. Please try again.')
             two_samples = [samples_ALL[idx][:, group] for idx, group in zip(sample_pair, [group0, group1])]
+            effective_sample_sizes = [ess_ALL[idx][group] for idx, group in zip(sample_pair, [group0, group1])]
             hist_labels = [directories[idx] for idx in sample_pair]
-            # E_Dself_g = E_Dself[sample_pair[:, None], np.array([group0, group1])]
             # Create figures by calling general overlay plotting function
-            # fig_ov, fig_bp, E_Dself_g = plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself=E_Dself_g,
-            #                                                show_plots=False, save_plots=False, **kwargs)
-            # E_Dself[sample_pair[:, None], np.array([group0, group1])] = E_Dself_g
-            fig_ov, fig_bp, _ = plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself=None,
-                                                           show_plots=False, save_plots=False, **kwargs)
+            fig_ov, fig_bp, _ = \
+                plot_hist_overlays(two_samples, param_labels0, hist_labels, E_Dself=None,
+                                   effective_sample_sizes=effective_sample_sizes, show_plots=False, save_plots=False,
+                                   **kwargs)
 
             # save overlay figure
             if save_plots is not False:
