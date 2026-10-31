@@ -21,7 +21,7 @@ kwargs = {'obs_labels': obs_labels, 'show_plots': True,
           'which_plots': 2}
 
 max_iter = None  # 500000
-_, (param_samples, param_groups, param_labels), _ = \
+_, (param_samples, _, _, _), _ = \
     plot_pydream_output(dirpath, calibrator, max_iter=max_iter, **kwargs)
 
 #### Run drug prediction simulations using the 'plot_timecourses' function ####
