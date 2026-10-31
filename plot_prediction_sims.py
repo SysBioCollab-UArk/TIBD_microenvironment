@@ -25,20 +25,19 @@ _, (param_samples, param_groups, param_labels), _ = \
     plot_pydream_output(dirpath, calibrator, max_iter=max_iter, **kwargs)
 
 #### Run drug prediction simulations using the 'plot_timecourses' function ####
-'''
 sim_protocols = calibrator.sim_protocols + [tumor_bisphos_injection]
 tspans = [np.linspace(0, 28, 281)] * len(sim_protocols)
 samples_idxs = calibrator.samples_idxs + [calibrator.samples_idxs[0]]
-'''
 #####
-sim_protocols = calibrator.sim_protocols[:2]
-tspans = [np.linspace(0, 28, 281)] * len(sim_protocols)
-# use values of 'k_tumor_PTHrP' for bone clones with values of all parameters for parentals
-p_idx = [calibrator.model.parameters[i].name for i in calibrator.parameter_idxs].index('k_tumor_PTHrP')
-new_sample_idxs = calibrator.samples_idxs[1]
-new_sample_idxs[p_idx] = calibrator.samples_idxs[0][p_idx]
-samples_idxs = [calibrator.samples_idxs[1], new_sample_idxs]  # parental, parental w/ k_tumor_PTHrP from bone clones
+# sim_protocols = calibrator.sim_protocols[:2]
+# tspans = [np.linspace(0, 28, 281)] * len(sim_protocols)
+# # use values of 'k_tumor_PTHrP' for bone clones with values of all parameters for parentals
+# p_idx = [calibrator.model.parameters[i].name for i in calibrator.parameter_idxs].index('k_tumor_PTHrP')
+# new_sample_idxs = calibrator.samples_idxs[1]
+# new_sample_idxs[p_idx] = calibrator.samples_idxs[0][p_idx]
+# samples_idxs = [calibrator.samples_idxs[1], new_sample_idxs]  # parental, parental w/ k_tumor_PTHrP from bone clones
 #####
+
 # plot all observables for all experiments, even if there's no data for them
 observables = [calibrator.observables[0]] * len(sim_protocols)
 xlabel = 'time (day)'
