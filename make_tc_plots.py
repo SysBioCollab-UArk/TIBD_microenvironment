@@ -5,7 +5,7 @@ from matplotlib.ticker import ScalarFormatter
 
 
 def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.csv', sim_data_filename='SIM_DATA.csv',
-             expt_data_only=True, **kwargs):
+             expt_data_only=True, all_sim_points=False, **kwargs):
 
     # process kwargs
     sharex = kwargs.get('sharex', 'all')
@@ -75,8 +75,6 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.cs
 
     obs_names = np.unique(sim_data_raw['observable'])
 
-    print('----------')
-
     obs_labels = \
         {'Bone_tot': 'Bone Density',
          'C_obs': 'Osteoclasts',
@@ -129,6 +127,10 @@ def make_fig(path, sim_expt_ids, fig_name, expt_data_filename='TIBD_PopD_Data.cs
                 sim_time = [d['time'] for d in sim_data[sim_expt_id] if d['observable'] == obs_name]
                 yval_min = [d['yval_min'] for d in sim_data[sim_expt_id] if d['observable'] == obs_name]
                 yval_max = [d['yval_max'] for d in sim_data[sim_expt_id] if d['observable'] == obs_name]
+                if len(expt_time) > 0 and not all_sim_points:
+                    sim_time = [t for t in sim_time if t <= expt_time[-1]]
+                    yval_min = yval_min[:len(sim_time)]
+                    yval_max = yval_max[:len(sim_time)]
                 ax.fill_between(sim_time, yval_min, yval_max, alpha=0.25, label=legend_labels[sim_expt_id],
                                            color=colors[sim_expt_id])
                 # add arrows pointing to the left and right if Bennett2024 and Johnson2011 tumor data are both present
@@ -224,13 +226,13 @@ if __name__ == '__main__':
     D = 'Johnson2011 (ZA-NoTumor)'
 
     common_opts = {'expt_data_filename': os.path.join('DATA', 'TIBD_PopD_Data.csv'),
-                   'sim_data_filename': 'SIM_DATA_preds.csv'}
+                   'sim_data_filename': 'SIM_DATA.csv'}
 
     plot_opts = [
-        # {'sim_expt_ids': [A, B, C, D], 'fig_name': 'Fig_all_expts', 'expt_data_only': True},
+        {'sim_expt_ids': [A, B, C, D], 'fig_name': 'Fig_all_expts', 'expt_data_only': True, 'all_sim_points': False},
         {'sim_expt_ids': [A, B], 'fig_name': 'Fig_expts_wo_ZA', 'expt_data_only': False},
         {'sim_expt_ids': [A, '4'], 'fig_name': 'Fig_boneMet_w_wo_ZA', 'expt_data_only': False},
-        {'sim_expt_ids': [A, C, '4'], 'fig_name': 'Fig_boneMet_w_wo_ZA_par_w_ZA', 'expt_data_only': False},
+        # {'sim_expt_ids': [A, C, '4'], 'fig_name': 'Fig_boneMet_w_wo_ZA_par_w_ZA', 'expt_data_only': False},
         # {'sim_expt_ids': [B, C], 'fig_name': 'Fig_par_w_wo_ZA', 'expt_data_only': False},
         # {'sim_expt_ids': [B], 'fig_name': 'Fig_par_wo_ZA', 'expt_data_only': False}
     ]
