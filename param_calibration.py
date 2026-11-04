@@ -13,6 +13,8 @@ import csv
 import multiprocessing
 import math
 from pydream_util import *
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 
 
 # Function for timeout option
@@ -296,7 +298,7 @@ class ParameterCalibration(object):
 
         # process plotting function arguments
         _plot_ll_args = {'cutoff': 2}
-        _plot_pd_args = {'labels': None, 'groups': None, 'sharex': 'all', 'sharey': 'none'}
+        _plot_pd_args = {'labels': None, 'groups': None, 'sharex': 'all', 'sharey': 'none', 'plot_priors': False}
         _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
         if plot_ll_args is not None:
             _plot_ll_args.update(plot_ll_args)
@@ -351,6 +353,12 @@ class ParameterCalibration(object):
                 _plot_pd_args['groups'] = param_groups
             _plot_pd_args['cutoff'] = _plot_ll_args['cutoff']
             _plot_pd_args['labels_dict'] = labels_dict
+            if _plot_pd_args['plot_priors'] is True:
+                _plot_pd_args['plot_priors'] = {'priors': self.sampled_params_list}
+            elif isinstance(_plot_pd_args['plot_priors'], dict):
+                plot_pd_args['plot_priors']['priors'] = self.sampled_params_list
+            else:
+                raise Exception("\'plot_priors\' must be either a bool or dict")
 
             param_samples, log_ps = \
                 self.plot_param_dist(samples_files, show_plot=False, save_plot=save_plots, **_plot_pd_args)
@@ -499,6 +507,11 @@ class ParameterCalibration(object):
         sharex = kwargs.get('sharex', 'all')
         sharey = kwargs.get('sharey', 'none')
         bw_adjust = kwargs.get('bw_adjust', 1)
+        plot_priors = kwargs.get('plot_priors', {})
+        priors = plot_priors.get('priors', None)
+        prior_color = plot_priors.get('color', 'k')
+        prior_ls = plot_priors.get('ls', '--')
+        prior_lw = plot_priors.get('lw', 2)
 
         # get chains and iterations from file names
         chains = []
@@ -588,6 +601,20 @@ class ParameterCalibration(object):
                 print(group[dim], end=end_line)
                 sns.kdeplot(samples[:, group[dim]], color=colors[dim], fill=True, common_norm=False, ax=axs[row][col],
                             bw_adjust=bw_adjust)
+                # plot priors, if requested
+                if plot_priors:
+                    prior = priors[group[dim]].dist
+                    # Uniform prior: show the lower and upper bounds
+                    if prior.dist.name == 'uniform':
+                        lower, upper = prior.support()
+                        axs[row][col].axvline(lower, color=prior_color, ls=prior_ls, lw=prior_lw)
+                        axs[row][col].axvline(upper, color=prior_color, ls=prior_ls, lw=prior_lw)
+                    # Other priors (currently normal): plot the probability density
+                    else:
+                        lower = prior.ppf(0.001)
+                        upper = prior.ppf(0.999)
+                        x_prior = np.linspace(lower, upper, 500)
+                        axs[row][col].plot(x_prior, prior.pdf(x_prior), color=prior_color, ls=prior_ls, lw=prior_lw)
                 # loop over chains
                 for chain in range(len(chains)):
                     sns.kdeplot(samples_chain[chain][:, group[dim]], fill=None, common_norm=False, ax=axs2[row][col],
@@ -615,7 +642,13 @@ class ParameterCalibration(object):
                     fig.delaxes(axs[row][col])
                     fig2.delaxes(axs2[row][col])
                     col += 1
-            # add a legend to fig2
+            # add a legend to fig if priors are plotted
+            if plot_priors:
+                posterior_handle = Patch(facecolor='lightgray', edgecolor='gray', label='Posterior')
+                prior_handle = Line2D([0], [0], color=prior_color, ls=prior_ls, lw=prior_lw, label='Prior')
+                fig.legend(handles=[posterior_handle, prior_handle], loc='outside right upper', frameon=False,
+                           fontsize=0.8 * labelsize)
+            # add a legend to fig2 for MCMC chains
             leg2 = fig2.legend(loc='outside right upper', frameon=False, fontsize=0.8 * labelsize, title='Chains',
                                title_fontsize=0.8 * labelsize, labelspacing=0.25, borderpad=0.8)
             for line in leg2.get_lines():
