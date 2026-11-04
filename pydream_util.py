@@ -1258,7 +1258,7 @@ def Gelman_Rubin_from_files(dirpath, fburnin=0.5, nchains=None):
         nsamples = 0
 
         for filename in files_by_chain[chain]:
-            samples = np.load(filename, mmap_mode='r')
+            samples = np.load(filename)
 
             if samples.ndim != 2:
                 raise ValueError(
@@ -1300,7 +1300,7 @@ def Gelman_Rubin_from_files(dirpath, fburnin=0.5, nchains=None):
         m2 = np.zeros(nparams, dtype=float)
 
         for filename in files_by_chain[chain]:
-            samples = np.load(filename, mmap_mode='r')
+            samples = np.load(filename)
             file_start = n_seen
             file_end = n_seen + samples.shape[0]
 
