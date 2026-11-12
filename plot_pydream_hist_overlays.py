@@ -128,6 +128,8 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, eff
     legend_fs = fontsizes.get('legend', None)
     legend_loc = kwargs.get('legend_loc', 'best')
     bw_adjust = kwargs.get('bw_adjust', (1, 1))  # histogram smoothing parameter
+    n_self_dist_pts = kwargs.get('n_self_dist_pts', 1000)
+    n_hist_dist_pts = kwargs.get('n_hist_dist_pts', 2000)
     sharex = kwargs.get('sharex', False)
     table_props = kwargs.get('table_props', {})
     table_fs = table_props.get('fontsize', None)
@@ -182,7 +184,8 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, eff
             kde = stats.gaussian_kde(samples[:, n])
             kde.set_bandwidth(kde.factor * bw_adjust[i])
             if E_Dself[i][n] is None:
-                E_Dself[i][n] = calc_self_distance(kde, effective_sample_sizes[i, n], x_vals[0], x_vals[-1], 1000)
+                E_Dself[i][n] = calc_self_distance(kde, effective_sample_sizes[i, n], x_vals[0], x_vals[-1],
+                                                   num_x_pts=n_self_dist_pts)
             if i == 0:  # reference histogram
                 # calculate self distance (expected value)
                 kde_ref = kde
@@ -191,7 +194,7 @@ def plot_hist_overlays(two_samples, param_labels, hist_labels, E_Dself=None, eff
             else:
                 # calculate histogram distance relative to the reference (use 2x the points, just to be safe)
                 D.append(calc_hist_distance(kde, kde_ref, min(x_vals[0], x_min_ref), max(x_vals[-1], x_max_ref),
-                                            2000))
+                                            num_x_pts=n_hist_dist_pts))
         self_distance_criterion.append(max(E_Dself[0][n], E_Dself[1][n]))
         empty_handle = Line2D([], [], linestyle="none")
         legend = ax.legend([empty_handle, empty_handle],
