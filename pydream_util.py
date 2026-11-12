@@ -1041,7 +1041,7 @@ def calculate_pydream_population_ess(dirpath, fburnin=0.5, cutoff=2.0, batch_siz
 
 def save_self_distance_comparison(dirpath, param_labels, hist_labels, raw_sample_counts, effective_sample_sizes,
                                   self_distances_ess, max_iter=None, filename=None):
-    """Save raw-count and ESS-adjusted self-distance comparisons to a text file."""
+    """Save raw-count and ESS-adjusted self-distance comparisons to a CSV file."""
 
     param_labels = list(param_labels)
     hist_labels = tuple(hist_labels)
@@ -1104,6 +1104,552 @@ def save_self_distance_comparison(dirpath, param_labels, hist_labels, raw_sample
     print('...to %s' % os.path.abspath(dirpath))
 
     return output_filepath
+
+
+def _parse_self_distance_sensitivity_filename(filepath):
+    """Return the bandwidth and numerical-grid settings encoded in a CSV filename."""
+
+    filename = os.path.basename(filepath)
+    match = re.search(r'_(-?\d+(?:\.\d+)?)_(\d+)_(\d+)\.csv$', filename)
+    if match is None:
+        raise ValueError("Could not parse bw_adjust, n_self_dist_pts, and n_hist_dist_pts from '%s'" % filename)
+
+    return float(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def _load_self_distance_sensitivity_files(dirpath, csv_files, param_labels=None, group_order=None):
+    """Read and validate self-distance sensitivity CSV files."""
+
+    csv_files = list(csv_files)
+    if not csv_files:
+        raise ValueError("'csv_files' must contain at least one self-distance comparison file")
+
+    required_columns = {
+        'parameter', 'group', 'retained_raw_n', 'adjusted_ess', 'self_distance_raw', 'self_distance_ess'
+    }
+    frames = []
+    settings_seen = set()
+
+    for csv_file in csv_files:
+        filepath = os.fspath(csv_file)
+        if not os.path.exists(filepath):
+            filepath = os.path.join(dirpath, filepath)
+        if not os.path.exists(filepath):
+            raise FileNotFoundError("Self-distance comparison file not found: %s" % filepath)
+
+        bw_value, n_self_value, n_hist_value = _parse_self_distance_sensitivity_filename(filepath)
+        setting = (bw_value, n_self_value, n_hist_value)
+        if setting in settings_seen:
+            raise ValueError("More than one self-distance comparison file was supplied for settings %s" %
+                             (setting, ))
+        settings_seen.add(setting)
+
+        frame = pd.read_csv(filepath)
+        missing_columns = required_columns.difference(frame.columns)
+        if missing_columns:
+            raise ValueError("%s is missing required columns: %s" %
+                             (os.path.basename(filepath), ', '.join(sorted(missing_columns))))
+
+        frame = frame.copy()
+        frame['parameter'] = frame['parameter'].astype(str)
+        frame['group'] = frame['group'].astype(str)
+        for column in ('retained_raw_n', 'adjusted_ess', 'self_distance_raw', 'self_distance_ess'):
+            frame[column] = pd.to_numeric(frame[column], errors='raise')
+
+        if frame.duplicated(['parameter', 'group']).any():
+            raise ValueError("%s contains duplicate parameter/group rows" % os.path.basename(filepath))
+
+        frame['bw_adjust'] = bw_value
+        frame['n_self_dist_pts'] = n_self_value
+        frame['n_hist_dist_pts'] = n_hist_value
+        frame['source_file'] = os.path.basename(filepath)
+        frames.append(frame)
+
+    combined = pd.concat(frames, ignore_index=True)
+    settings = sorted(settings_seen, key=lambda item: (item[0], item[1], item[2]))
+
+    if param_labels is None:
+        param_labels = list(dict.fromkeys(frames[0]['parameter'].tolist()))
+    else:
+        param_labels = list(param_labels)
+    if len(param_labels) != len(set(param_labels)):
+        raise ValueError("'param_labels' contains duplicate parameter names")
+
+    first_groups = frames[0]['group'].tolist()
+    if group_order is None:
+        group_order = tuple(dict.fromkeys(first_groups))
+    else:
+        group_order = tuple(group_order)
+    if len(group_order) != 2 or len(set(group_order)) != 2:
+        raise ValueError("'group_order' must contain exactly two distinct group labels")
+
+    expected_parameters = set(param_labels)
+    expected_groups = set(group_order)
+    for frame in frames:
+        source_file = frame['source_file'].iloc[0]
+        if set(frame['parameter']) != expected_parameters:
+            raise ValueError("Parameter names in %s do not match 'param_labels'" % source_file)
+        if set(frame['group']) != expected_groups:
+            raise ValueError("Group names in %s do not match 'group_order'" % source_file)
+        if len(frame) != len(param_labels) * 2:
+            raise ValueError("%s does not contain one row per parameter and group" % source_file)
+
+    for (parameter, group), subset in combined.groupby(['parameter', 'group'], sort=False):
+        for column in ('retained_raw_n', 'adjusted_ess'):
+            values = subset[column].to_numpy(dtype=float)
+            if not np.allclose(values, values[0], rtol=0, atol=5e-7):
+                raise ValueError("%s varies across sensitivity settings for %s, %s" %
+                                 (column, parameter, group))
+
+    return combined, settings, param_labels, group_order
+
+
+def _self_distance_values(combined, settings, parameter, group, value_column):
+    """Return values for one parameter, group, and metric in sensitivity-setting order."""
+
+    values = []
+    for bw_value, n_self_value, n_hist_value in settings:
+        mask = (
+            (combined['parameter'] == parameter) &
+            (combined['group'] == group) &
+            np.isclose(combined['bw_adjust'], bw_value) &
+            (combined['n_self_dist_pts'] == n_self_value) &
+            (combined['n_hist_dist_pts'] == n_hist_value)
+        )
+        matches = combined.loc[mask, value_column]
+        if len(matches) != 1:
+            raise ValueError("Expected one %s value for %s, %s, settings %s; found %d" %
+                             (value_column, parameter, group,
+                              (bw_value, n_self_value, n_hist_value), len(matches)))
+        values.append(float(matches.iloc[0]))
+
+    return np.asarray(values, dtype=float)
+
+
+def _find_self_distance_setting_index(settings, selected_settings):
+    """Return the index of a selected sensitivity setting, or None when none is selected."""
+
+    if selected_settings is None:
+        return None
+
+    selected_bw, selected_n_self, selected_n_hist = selected_settings
+    for setting_idx, (bw_value, n_self_value, n_hist_value) in enumerate(settings):
+        if (np.isclose(bw_value, selected_bw) and n_self_value == selected_n_self and
+                n_hist_value == selected_n_hist):
+            return setting_idx
+
+    raise ValueError("The selected settings %s were not found in the supplied CSV files" %
+                     (selected_settings, ))
+
+
+def _write_self_distance_dataset(output_filepath, combined, settings, param_labels, group_order,
+                                 group_display_labels, table_param_labels, selected_settings):
+    """Write the self-distance sensitivity results and ESS values to an Excel workbook."""
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError as error:
+        raise ImportError("Creating Dataset S2 requires openpyxl") from error
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Self-distance'
+    worksheet.sheet_view.showGridLines = False
+
+    thin_gray = Side(style='thin', color='B7B7B7')
+    medium_black = Side(style='medium', color='000000')
+    header_fill = PatternFill(fill_type='solid', fgColor='D9EAF7')
+    selected_font = Font(name='Arial', size=10, color='FF0000')
+    body_font = Font(name='Arial', size=10)
+    bold_font = Font(name='Arial', size=10, bold=True)
+    centered = Alignment(horizontal='center', vertical='center')
+    left_aligned = Alignment(horizontal='left', vertical='center')
+
+    metric_definitions = (
+        ('Raw-count E[D^self]', 'self_distance_raw', group_order[0]),
+        ('Raw-count E[D^self]', 'self_distance_raw', group_order[1]),
+        ('ESS-adjusted E[D^self]', 'self_distance_ess', group_order[0]),
+        ('ESS-adjusted E[D^self]', 'self_distance_ess', group_order[1]),
+    )
+    first_data_column = 3
+    last_data_column = first_data_column + len(settings) - 1
+
+    selected_setting_idx = _find_self_distance_setting_index(settings, selected_settings)
+    selected_column = (None if selected_setting_idx is None else
+                       first_data_column + selected_setting_idx)
+
+    for parameter_idx, parameter in enumerate(param_labels):
+        heading_row = 1 + 6 * parameter_idx
+        worksheet.merge_cells(start_row=heading_row, start_column=first_data_column,
+                              end_row=heading_row, end_column=last_data_column)
+        heading_cell = worksheet.cell(heading_row, first_data_column, table_param_labels.get(parameter, parameter))
+        heading_cell.font = body_font
+        heading_cell.alignment = centered
+        for column_idx in range(first_data_column, last_data_column + 1):
+            worksheet.cell(heading_row, column_idx).border = Border(bottom=medium_black)
+
+        for metric_idx, (metric_label, value_column, group) in enumerate(metric_definitions, start=1):
+            row_idx = heading_row + metric_idx
+            label = '%s, %s' % (metric_label, group_display_labels.get(group, group))
+            worksheet.cell(row_idx, 2, label).font = body_font
+            worksheet.cell(row_idx, 2).alignment = left_aligned
+
+            values = _self_distance_values(combined, settings, parameter, group, value_column)
+            for setting_idx, value in enumerate(values):
+                column_idx = first_data_column + setting_idx
+                cell = worksheet.cell(row_idx, column_idx, value)
+                cell.number_format = '0.000000'
+                cell.font = selected_font if column_idx == selected_column else body_font
+                cell.alignment = centered
+
+    key_first_column = last_data_column + 2
+    key_last_column = key_first_column + 3
+    worksheet.merge_cells(start_row=1, start_column=key_first_column, end_row=1, end_column=key_last_column)
+    key_title = worksheet.cell(1, key_first_column, 'Sensitivity-setting column key')
+    key_title.fill = header_fill
+    key_title.font = Font(name='Arial', size=10, bold=True)
+    key_title.alignment = centered
+
+    key_headers = ('Column', 'bw_adjust', 'n_self_dist_pts', 'n_hist_dist_pts')
+    for offset, header in enumerate(key_headers):
+        cell = worksheet.cell(2, key_first_column + offset, header)
+        cell.fill = header_fill
+        cell.font = bold_font
+        cell.alignment = centered
+        cell.border = Border(bottom=thin_gray)
+
+    for setting_idx, (bw_value, n_self_value, n_hist_value) in enumerate(settings):
+        row_idx = 3 + setting_idx
+        data_column = first_data_column + setting_idx
+        column_label = get_column_letter(data_column)
+        is_selected = data_column == selected_column
+        if is_selected:
+            column_label = '*' + column_label
+        values = (column_label, int(bw_value) if float(bw_value).is_integer() else bw_value,
+                  n_self_value, n_hist_value)
+        for offset, value in enumerate(values):
+            cell = worksheet.cell(row_idx, key_first_column + offset, value)
+            cell.font = selected_font if is_selected else body_font
+            cell.alignment = centered
+
+    note_row = 3 + len(settings)
+    if selected_column is not None:
+        note_cell = worksheet.cell(note_row, key_first_column, '*Settings used in Figures 4 and S6')
+        note_cell.font = Font(name='Arial', size=10, color='FF0000')
+        note_cell.alignment = left_aligned
+
+    ess_title_row = note_row + 2
+    ess_last_column = key_first_column + 2
+    worksheet.merge_cells(start_row=ess_title_row, start_column=key_first_column,
+                          end_row=ess_title_row, end_column=ess_last_column)
+    ess_title = worksheet.cell(ess_title_row, key_first_column, 'Adjusted effective sample size (ESS)*')
+    ess_title.font = bold_font
+    ess_title.alignment = centered
+    for column_idx in range(key_first_column, ess_last_column + 1):
+        worksheet.cell(ess_title_row, column_idx).border = Border(bottom=medium_black)
+
+    ess_header_row = ess_title_row + 1
+    ess_headers = ('Parameter', group_display_labels.get(group_order[0], group_order[0]),
+                   group_display_labels.get(group_order[1], group_order[1]))
+    for offset, header in enumerate(ess_headers):
+        cell = worksheet.cell(ess_header_row, key_first_column + offset, header)
+        cell.font = bold_font
+        cell.alignment = centered
+
+    raw_counts = []
+    for parameter_idx, parameter in enumerate(param_labels):
+        row_idx = ess_header_row + 1 + parameter_idx
+        parameter_cell = worksheet.cell(row_idx, key_first_column, table_param_labels.get(parameter, parameter))
+        parameter_cell.font = body_font
+        parameter_cell.alignment = centered
+
+        for group_idx, group in enumerate(group_order, start=1):
+            subset = combined[(combined['parameter'] == parameter) & (combined['group'] == group)]
+            adjusted_ess = float(subset['adjusted_ess'].iloc[0])
+            raw_count = int(round(float(subset['retained_raw_n'].iloc[0])))
+            raw_counts.append(raw_count)
+            cell = worksheet.cell(row_idx, key_first_column + group_idx, adjusted_ess)
+            cell.number_format = '#,##0'
+            cell.font = body_font
+            cell.alignment = centered
+
+    if len(set(raw_counts)) != 1:
+        raise ValueError("The retained raw sample count is not identical across all parameters and groups")
+    raw_count_note_row = ess_header_row + 1 + len(param_labels)
+    raw_count_note = worksheet.cell(raw_count_note_row, key_first_column,
+                                    '*Raw retained parameter set samples = %s' % format(raw_counts[0], ','))
+    raw_count_note.font = body_font
+    raw_count_note.alignment = left_aligned
+
+    worksheet.column_dimensions['A'].width = 2
+    worksheet.column_dimensions['B'].width = 38
+    for column_idx in range(first_data_column, last_data_column + 1):
+        worksheet.column_dimensions[get_column_letter(column_idx)].width = 13
+    worksheet.column_dimensions[get_column_letter(last_data_column + 1)].width = 3
+    worksheet.column_dimensions[get_column_letter(key_first_column)].width = 18
+    for column_idx in range(key_first_column + 1, key_last_column + 1):
+        worksheet.column_dimensions[get_column_letter(column_idx)].width = 19
+
+    for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row,
+                                   min_col=1, max_col=worksheet.max_column):
+        for cell in row:
+            if cell.value is not None and cell.font == Font():
+                cell.font = body_font
+
+    workbook.save(output_filepath)
+
+
+def _plot_self_distance_sensitivity(output_filepath, combined, settings, param_labels, group_order,
+                                    group_display_labels, figure_param_labels, show_plot,
+                                    selected_settings=None, figure_options=None):
+    """Create a compact, responsive self-distance sensitivity summary figure."""
+
+    from matplotlib.patches import Rectangle
+    from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+    defaults = {
+        'column_width': 1.50,
+        'inter_group_width': 0.30,
+        'row_height': 0.90,
+        'footer_height': 0.90,
+        'minimum_width': 7.40,
+        'label_padding': 8,
+        'label_fontsize': 15,
+        'tick_fontsize': 10,
+        'group_fontsize': 12,
+        'footer_fontsize': 13,
+        'range_height': 0.46,
+        'point_size': 23,
+        'selected_point_size': 35,
+        'selected_point_edgecolor': 'black',
+        'selected_point_linewidth': 1.0,
+        'maximum_ticks': 2,
+        'tick_significant_digits': 4,
+        'jitter_span': 0.20,
+        'dpi': 350,
+        'save_padding': 0.04,
+    }
+    figure_options = {} if figure_options is None else dict(figure_options)
+    unknown_options = set(figure_options).difference(defaults)
+    if unknown_options:
+        raise ValueError("Unknown figure_options: %s" % ', '.join(sorted(unknown_options)))
+    options = defaults.copy()
+    options.update(figure_options)
+
+    if not isinstance(options['tick_significant_digits'], (int, np.integer)) or \
+            options['tick_significant_digits'] < 1:
+        raise ValueError("'tick_significant_digits' must be a positive integer")
+
+    if not param_labels:
+        raise ValueError("'param_labels' must contain at least one parameter")
+    if not settings:
+        raise ValueError("At least one sensitivity setting is required")
+
+    selected_setting_idx = _find_self_distance_setting_index(settings, selected_settings)
+
+    metrics = (
+        ('self_distance_raw', group_order[0]),
+        ('self_distance_raw', group_order[1]),
+        ('self_distance_ess', group_order[0]),
+        ('self_distance_ess', group_order[1]),
+    )
+    values = {
+        parameter: [
+            _self_distance_values(combined, settings, parameter, group, value_column)
+            for value_column, group in metrics
+        ]
+        for parameter in param_labels
+    }
+
+    raw_values = np.concatenate([values[parameter][metric_idx]
+                                 for parameter in param_labels for metric_idx in (0, 1)])
+    ess_values = np.concatenate([values[parameter][metric_idx]
+                                 for parameter in param_labels for metric_idx in (2, 3)])
+
+    def padded_limits(all_values):
+        if not np.all(np.isfinite(all_values)):
+            raise ValueError('Self-distance values must all be finite')
+        data_min = float(np.min(all_values))
+        data_max = float(np.max(all_values))
+        value_range = data_max - data_min
+        scale = max(abs(data_min), abs(data_max), 1e-12)
+        padding = max(0.08 * value_range, 0.05 * scale, 1e-12)
+        lower = data_min - padding
+        if data_min >= 0:
+            lower = max(0.0, lower)
+        return lower, data_max + padding
+
+    raw_limits = padded_limits(raw_values)
+    ess_limits = padded_limits(ess_values)
+    if len(settings) == 1:
+        jitter = np.zeros(1)
+    else:
+        jitter = np.linspace(-options['jitter_span'] / 2, options['jitter_span'] / 2, len(settings))
+
+    n_parameters = len(param_labels)
+    display_parameter_labels = [figure_param_labels.get(parameter, parameter) for parameter in param_labels]
+    display_group_labels = [group_display_labels.get(group, group) for group in group_order]
+    footer_labels = (r'Raw-count $\mathrm{E}[D^{\mathrm{self}}]$',
+                     r'ESS-adjusted $\mathrm{E}[D^{\mathrm{self}}]$')
+
+    def maximum_text_extent(labels, fontsize, fontweight='normal'):
+        measurement_figure = plt.figure(figsize=(1, 1))
+        text_artists = [measurement_figure.text(0, 0, str(label), fontsize=fontsize, fontweight=fontweight)
+                        for label in labels]
+        measurement_figure.canvas.draw()
+        renderer = measurement_figure.canvas.get_renderer()
+        widths = [text_artist.get_window_extent(renderer).width for text_artist in text_artists]
+        heights = [text_artist.get_window_extent(renderer).height for text_artist in text_artists]
+        extent = max(widths) / measurement_figure.dpi, max(heights) / measurement_figure.dpi
+        plt.close(measurement_figure)
+        return extent
+
+    parameter_label_width, parameter_label_height = maximum_text_extent(
+        display_parameter_labels, options['label_fontsize'])
+    group_label_width, group_label_height = maximum_text_extent(
+        display_group_labels, options['group_fontsize'])
+    footer_label_width, footer_label_height = maximum_text_extent(
+        footer_labels, options['footer_fontsize'], fontweight='bold')
+
+    effective_column_width = max(options['column_width'], group_label_width + 0.16,
+                                 footer_label_width / 2 + 0.12)
+    effective_row_height = max(options['row_height'], parameter_label_height + 0.35)
+    effective_footer_height = max(options['footer_height'], group_label_height + footer_label_height + 0.42)
+    plot_width = 4 * effective_column_width + options['inter_group_width']
+    figure_width = max(options['minimum_width'], plot_width + parameter_label_width + 0.35)
+    figure_height = n_parameters * effective_row_height + effective_footer_height
+    figure = plt.figure(figsize=(figure_width, figure_height), layout='constrained', facecolor='white')
+    grid = figure.add_gridspec(
+        n_parameters + 1,
+        5,
+        width_ratios=[effective_column_width, effective_column_width, options['inter_group_width'],
+                      effective_column_width, effective_column_width],
+        height_ratios=[effective_row_height] * n_parameters + [effective_footer_height],
+    )
+    layout_engine = figure.get_layout_engine()
+    if layout_engine is not None:
+        layout_engine.set(h_pad=0.02, w_pad=0.02, hspace=0.03, wspace=0.05)
+
+    axis_columns = (0, 1, 3, 4)
+    axes = np.empty((n_parameters, 4), dtype=object)
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    for row_idx, parameter in enumerate(param_labels):
+        color = colors[row_idx % len(colors)]
+        for column_idx, grid_column in enumerate(axis_columns):
+            axis = figure.add_subplot(grid[row_idx, grid_column])
+            axes[row_idx, column_idx] = axis
+            data = values[parameter][column_idx]
+            data_min = np.min(data)
+            data_max = np.max(data)
+            data_median = np.median(data)
+            range_height = options['range_height']
+
+            axis.add_patch(Rectangle((data_min, 1 - range_height / 2), data_max - data_min, range_height,
+                                     facecolor=color, edgecolor=color, alpha=0.32, linewidth=1.5, zorder=1))
+            axis.plot([data_median, data_median], [1 - range_height / 2, 1 + range_height / 2],
+                      color='black', linewidth=1.9, zorder=2)
+            axis.scatter(data, 1 + jitter, s=options['point_size'], facecolor='white', edgecolor=color,
+                         linewidth=1.0, zorder=3)
+            if selected_setting_idx is not None:
+                axis.scatter(data[selected_setting_idx], 1 + jitter[selected_setting_idx],
+                             s=options['selected_point_size'], facecolor=color,
+                             edgecolor=options['selected_point_edgecolor'],
+                             linewidth=options['selected_point_linewidth'], zorder=4)
+
+            axis.set_xlim(*(raw_limits if column_idx < 2 else ess_limits))
+            axis.set_ylim(0.66, 1.34)
+            axis.set_yticks([])
+            axis.set_axisbelow(True)
+            axis.grid(axis='x', color='#D9D9D9', linewidth=0.7, alpha=0.75)
+            axis.spines['top'].set_visible(False)
+            axis.spines['right'].set_visible(False)
+            axis.spines['left'].set_visible(False)
+            axis.spines['bottom'].set_color('#8A8A8A')
+            axis.xaxis.set_major_locator(MaxNLocator(nbins=options['maximum_ticks'], min_n_ticks=3))
+            format_specification = '.%dg' % options['tick_significant_digits']
+            formatter = FuncFormatter(lambda value, position, spec=format_specification: format(value, spec))
+            axis.xaxis.set_major_formatter(formatter)
+            axis.tick_params(axis='x', labelsize=options['tick_fontsize'], width=0.8, length=3,
+                             labelbottom=row_idx == n_parameters - 1)
+        axes[row_idx, 0].set_ylabel(
+            display_parameter_labels[row_idx],
+            rotation=0,
+            labelpad=options['label_padding'],
+            fontsize=options['label_fontsize'],
+            ha='right',
+            va='center',
+        )
+
+    def add_footer(axis, label):
+        axis.set_axis_off()
+        axis.set_xlim(0, 2)
+        axis.set_ylim(0, 1)
+        axis.text(0.5, 0.78, display_group_labels[0], ha='center', va='center',
+                  fontsize=options['group_fontsize'])
+        axis.text(1.5, 0.78, display_group_labels[1], ha='center', va='center',
+                  fontsize=options['group_fontsize'])
+        axis.plot([0.02, 1.98], [0.43, 0.43], color='black', linewidth=1.1, clip_on=False)
+        axis.plot([0.02, 0.02], [0.43, 0.35], color='black', linewidth=1.1, clip_on=False)
+        axis.plot([1.98, 1.98], [0.43, 0.35], color='black', linewidth=1.1, clip_on=False)
+        axis.text(1.0, 0.12, label, ha='center', va='center',
+                  fontsize=options['footer_fontsize'], fontweight='bold')
+
+    raw_footer = figure.add_subplot(grid[-1, 0:2])
+    ess_footer = figure.add_subplot(grid[-1, 3:5])
+    add_footer(raw_footer, footer_labels[0])
+    add_footer(ess_footer, footer_labels[1])
+
+    figure.savefig(output_filepath, dpi=options['dpi'], bbox_inches='tight',
+                   pad_inches=options['save_padding'], facecolor='white')
+    if show_plot:
+        plt.show()
+    plt.close(figure)
+
+
+def save_self_distance_sensitivity_outputs(dirpath, csv_files, param_labels=None, group_order=None,
+                                           group_display_labels=None, table_param_labels=None,
+                                           figure_param_labels=None, selected_settings=None,
+                                           dataset_filename='Dataset_S2.xlsx',
+                                           figure_filename='Figure_S7_self_distance_sensitivity.png',
+                                           show_plot=False, figure_options=None):
+    """Create Dataset S2 and Figure S7 from self-distance sensitivity CSV files.
+
+    When ``param_labels`` or ``group_order`` is None, its order is inferred from first appearance in the first CSV
+    file. Supplying either argument remains useful when a different display order is desired. Optional
+    ``figure_options`` override the responsive figure-layout and styling defaults. When ``selected_settings`` is
+    supplied, its spreadsheet values are highlighted and its figure points are shown as filled markers. A value of
+    None leaves all sensitivity settings visually equivalent.
+    """
+
+    combined, settings, param_labels, group_order = _load_self_distance_sensitivity_files(
+        dirpath=dirpath, csv_files=csv_files, param_labels=param_labels, group_order=group_order)
+    group_display_labels = {} if group_display_labels is None else dict(group_display_labels)
+    table_param_labels = {} if table_param_labels is None else dict(table_param_labels)
+    figure_param_labels = {} if figure_param_labels is None else dict(figure_param_labels)
+
+    os.makedirs(dirpath, exist_ok=True)
+    dataset_filepath = os.path.join(dirpath, dataset_filename)
+    figure_filepath = os.path.join(dirpath, figure_filename)
+
+    _write_self_distance_dataset(
+        output_filepath=dataset_filepath, combined=combined, settings=settings, param_labels=param_labels,
+        group_order=group_order, group_display_labels=group_display_labels,
+        table_param_labels=table_param_labels, selected_settings=selected_settings)
+    _plot_self_distance_sensitivity(
+        output_filepath=figure_filepath, combined=combined, settings=settings, param_labels=param_labels,
+        group_order=group_order, group_display_labels=group_display_labels,
+        figure_param_labels=figure_param_labels, show_plot=show_plot,
+        selected_settings=selected_settings, figure_options=figure_options)
+
+    print('Saving...')
+    print('    %s' % dataset_filename)
+    print('    %s' % figure_filename)
+    print('...to %s' % os.path.abspath(dirpath))
+
+    return dataset_filepath, figure_filepath
 
 
 def _get_pydream_sample_files(dirpath, nchains=None):
@@ -1414,3 +1960,87 @@ def iter_simulation_outputs_resilient(sample_args, run_fn, run_with_timeout_fn, 
             except: pass
 
         i = batch_end
+
+
+def save_posterior_summary(dirpath, samples, groups, param_labels,
+                           group_labels, max_iter=None, filename=None):
+    """Save posterior medians and central 90% credible intervals.
+
+    Parameters
+    ----------
+    dirpath : str or path-like
+        Directory in which to save the CSV file.
+    samples : array-like
+        Retained parameter set ensemble with shape (n_samples, n_parameters). Values must be in log10 space.
+    groups : sequence of sequences
+        Parameter-column indices for each parameter group.
+    param_labels : sequence of sequences
+        Parameter names corresponding to the indices in each group.
+    group_labels : sequence of str
+        Labels describing the parameter groups, such as Bone-Adapted, Parental, and Shared.
+    max_iter : int or None, optional
+        Maximum PyDREAM iteration used. This is included in the default filename.
+    filename : str or None, optional
+        Output filename. A default name is generated when None.
+
+    Returns
+    -------
+    str
+        Path to the saved CSV file.
+    """
+    samples = np.asarray(samples, dtype=float)
+
+    if samples.ndim != 2:
+        raise ValueError("'samples' must have shape (n_samples, n_parameters); found %s" % samples.shape)
+
+    if samples.shape[0] == 0:
+        raise ValueError("'samples' contains no retained parameter sets")
+
+    if not np.all(np.isfinite(samples)):
+        raise ValueError("'samples' contains nonfinite values")
+
+    if not len(groups) == len(param_labels) == len(group_labels):
+        raise ValueError("'groups', 'param_labels', and 'group_labels' must have the same length")
+
+    parameter_indices = []
+
+    for group, labels in zip(groups, param_labels):
+        if len(group) != len(labels):
+            raise ValueError("Each parameter group must have the same length as its corresponding label list")
+
+        for parameter_idx in group:
+            if not isinstance(parameter_idx, (int, np.integer)):
+                raise TypeError("Parameter indices must be integers; found %r" % parameter_idx)
+
+            if not 0 <= parameter_idx < samples.shape[1]:
+                raise IndexError("Parameter index %d is outside the available range 0-%d" %
+                                 (parameter_idx, samples.shape[1] - 1))
+
+            parameter_indices.append(int(parameter_idx))
+
+    expected_indices = list(range(samples.shape[1]))
+
+    if sorted(parameter_indices) != expected_indices:
+        raise ValueError("'groups' must include every sampled-parameter column exactly once")
+
+    if filename is None:
+        iteration_label = 'all' if max_iter is None else str(max_iter)
+        filename = 'PyDREAM_posterior_summary_%s.csv' % iteration_label
+
+    output_filepath = os.path.join(dirpath, filename)
+
+    with open(output_filepath, 'w', encoding='utf-8', newline='') as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerow(['parameter', 'group', 'posterior_median', 'credible_interval_5th_percentile',
+                             'credible_interval_95th_percentile'])
+        for group_label, group, labels in zip(group_labels, groups, param_labels):
+            for parameter_idx, parameter_label in zip(group, labels):
+                quantiles_log10 = np.percentile(samples[:, parameter_idx], [5.0, 50.0, 95.0])
+                lower, median, upper = np.power(10.0, quantiles_log10)
+                csv_writer.writerow([parameter_label, group_label, '%.12g' % median, '%.12g' % lower, '%.12g' % upper])
+
+    print('Saving...')
+    print('    %s' % filename)
+    print('...to %s' % os.path.abspath(dirpath))
+
+    return output_filepath
