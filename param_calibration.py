@@ -646,8 +646,8 @@ class ParameterCalibration(object):
             if plot_priors:
                 posterior_handle = Patch(facecolor='lightgray', edgecolor='gray', label='Posterior')
                 prior_handle = Line2D([0], [0], color=prior_color, ls=prior_ls, lw=prior_lw, label='Prior')
-                fig.legend(handles=[posterior_handle, prior_handle], loc='outside right upper', frameon=False,
-                           fontsize=0.8 * labelsize)
+                fig.legend(handles=[posterior_handle, prior_handle], loc='outside upper center', frameon=False,
+                           fontsize=0.8 * labelsize, ncol=2)
             # add a legend to fig2 for MCMC chains
             leg2 = fig2.legend(loc='outside right upper', frameon=False, fontsize=0.8 * labelsize, title='Chains',
                                title_fontsize=0.8 * labelsize, labelspacing=0.25, borderpad=0.8)
