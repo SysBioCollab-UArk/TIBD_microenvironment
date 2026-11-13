@@ -64,7 +64,7 @@ class SimulationProtocol(object):
 
 class ParameterCalibration(object):
 
-    def __init__(self, model, expt_data_file, sim_protocols, priors=None, no_sample=None, default_prior=('norm', 2.0),
+    def __init__(self, model, expt_data_file, sim_protocols, priors=None, no_sample=None, default_prior=None,
                  param_expts_map=None):
 
         self.model = model
@@ -144,8 +144,12 @@ class ParameterCalibration(object):
                     # likelihood_exclude[('obs_Y', 1)] = 4
 
         # create the list of parameters to be sampled and save their indices
-        priors = {} if priors is None else priors
-        no_sample = [] if no_sample is None else no_sample
+        if priors is None:
+            priors = {}
+        if no_sample is None:
+            no_sample = []
+        if default_prior is None:
+            default_prior = ('norm', 2.0)
         param_expts_map = {} if param_expts_map is None else param_expts_map
         self.sampled_params_list = []
         self.parameter_idxs = []
