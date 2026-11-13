@@ -15,6 +15,7 @@ import math
 from pydream_util import *
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
+from copy import deepcopy
 
 
 # Function for timeout option
@@ -301,11 +302,11 @@ class ParameterCalibration(object):
         _plot_pd_args = {'labels': None, 'groups': None, 'sharex': 'all', 'sharey': 'none', 'plot_priors': False}
         _plot_tc_args = {'tspans': None, 'xlabel': None, 'ylabels': None, 'leg_labels': None, 'separate_plots': True}
         if plot_ll_args is not None:
-            _plot_ll_args.update(plot_ll_args)
+            _plot_ll_args.update(deepcopy(plot_ll_args))
         if plot_pd_args is not None:
-            _plot_pd_args.update(plot_pd_args)
+            _plot_pd_args.update(deepcopy(plot_pd_args))
         if plot_tc_args is not None:
-            _plot_tc_args.update(plot_tc_args)
+            _plot_tc_args.update(deepcopy(plot_tc_args))
 
         # List of objects returned from each function
         # NOTE: only `plot_param_dist()` returns anything right now. The other functions return `None`
@@ -355,8 +356,10 @@ class ParameterCalibration(object):
             _plot_pd_args['labels_dict'] = labels_dict
             if _plot_pd_args['plot_priors'] is True:
                 _plot_pd_args['plot_priors'] = {'priors': self.sampled_params_list}
+            elif _plot_pd_args['plot_priors'] is False:
+                _plot_pd_args['plot_priors'] = {}
             elif isinstance(_plot_pd_args['plot_priors'], dict):
-                plot_pd_args['plot_priors']['priors'] = self.sampled_params_list
+                _plot_pd_args['plot_priors']['priors'] = self.sampled_params_list
             else:
                 raise Exception("\'plot_priors\' must be either a bool or dict")
 
@@ -508,6 +511,8 @@ class ParameterCalibration(object):
         sharey = kwargs.get('sharey', 'none')
         bw_adjust = kwargs.get('bw_adjust', 1)
         plot_priors = kwargs.get('plot_priors', {})
+        if plot_priors is False:
+            plot_priors = {}
         priors = plot_priors.get('priors', None)
         prior_color = plot_priors.get('color', 'k')
         prior_ls = plot_priors.get('ls', '--')
