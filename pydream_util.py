@@ -84,6 +84,10 @@ def find_closest_index(tspan, target):
     return best_idx
 
 
+def alphanumeric_sort(values):
+    return sorted(values, key=lambda s: [int(x) if x.isdigit() else x.lower() for x in re.split(r'(\d+)', s)])
+
+
 def plot_expt_data(filepath, figures=None, label_dict=None, add_titles=False, separate_plots=True, show_plots=True,
                    save_plots=False, **kwargs):
 
