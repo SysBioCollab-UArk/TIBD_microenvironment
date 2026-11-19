@@ -279,10 +279,12 @@ class ParameterCalibration(object):
                 restart = True
 
         if plot_results:
+            kwargs = {} if plot_results is True else plot_results
             logps_files = glob.glob('dreamzs*logps*')
             samples_files = glob.glob('dreamzs*params*')
             self.create_figures(logps_files, samples_files, obs_labels=obs_labels, plot_ll_args=plot_ll_args,
-                                plot_pd_args=plot_pd_args, plot_tc_args=plot_tc_args)
+                                plot_pd_args=plot_pd_args, plot_tc_args=plot_tc_args, **kwargs)
+
 
     def create_figures(self, logps_files, samples_files, obs_labels=None, show_plots=False, save_plots=True,
                        plot_ll_args=None, plot_pd_args=None, plot_tc_args=None, which_plots='all',
